@@ -8,6 +8,9 @@
 #include "scene/DxfImporter.h"
 #include "core/Camera.h"
 #include "ui/ViewCube.h"
+#include "ui/HazelUI.h"
+#include "ui/SceneHierarchyPanel.h"
+#include "ui/ContentBrowserPanel.h"
 #include <imgui.h>
 #include <string>
 #include <vector>
@@ -52,15 +55,22 @@ public:
     bool needsDiagramRebuild  = false;
     bool needsHeatmapRebuild  = false;
 
-    // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026)
+    // Panneaux inspirés de Hazel Engine (The Cherno)
+    SceneHierarchyPanel sceneHierarchyPanel;
+    ContentBrowserPanel contentBrowserPanel;
+    bool showSceneHierarchy   = true;
+    bool showContentBrowser   = true;
+    bool showSimulationToolbar = true;
+
+    // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026 / Hazelnut)
     bool showViewport3D       = false; // Désactivé : la scène 3D s'affiche directement plein écran sans superposition
-    bool showStructureExplorer = true;
+    bool showStructureExplorer = false; // Intégré dans la Hiérarchie de Scène Hazel
     bool showDisplayLayers    = true;
     bool showSectionPlanes    = true;
     bool showDeformedResults  = true;
     bool showDiagramsResults  = true;
     bool showHeatmapResults   = true;
-    bool showInspector        = true;
+    bool showInspector        = false; // Remplacé par le panneau Propriétés Hazel avec DrawVec3Control
     bool showCppCatalog       = true;
     bool showJsonCatalog      = true;
     bool showDxfImporter      = true;
@@ -75,6 +85,8 @@ private:
     void drawMainMenuBar(model::Structure& structure, Camera& camera,
                          const glm::vec3& boundsMin, const glm::vec3& boundsMax,
                          RenderState& state, int fps);
+    void drawHazelSimulationToolbar(model::Structure& structure, Camera& camera,
+                                    const glm::vec3& boundsMin, const glm::vec3& boundsMax, RenderState& state);
     void drawQuickToolbar(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax, RenderState& state);
 
     // Fenêtre centrale : Vue 3D dockable avec FBO OpenGL

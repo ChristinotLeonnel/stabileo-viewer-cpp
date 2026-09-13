@@ -3,6 +3,8 @@
 // =============================================================================
 
 #include "ui/UIManager.h"
+#include "ui/HazelUI.h"
+#include "solver/LinearSolver.h"
 #include "scene/ModelLoader.h"
 #include "scripting/ScriptEngine.h"
 #include <imgui.h>
@@ -13,83 +15,13 @@
 #include <algorithm>
 
 void UIManager::setupStyle() {
-    ImGuiStyle& style = ImGui::GetStyle();
-
-    // Arrondis modernes et élégants
-    style.WindowRounding    = 8.0f;
-    style.ChildRounding     = 6.0f;
-    style.FrameRounding     = 5.0f;
-    style.PopupRounding     = 6.0f;
-    style.ScrollbarRounding = 6.0f;
-    style.GrabRounding      = 4.0f;
-    style.TabRounding       = 6.0f;
-    style.DockingSeparatorSize = 3.0f;
-
-    // Espacements et marges confortables
-    style.WindowPadding     = ImVec2(10.0f, 10.0f);
-    style.FramePadding      = ImVec2(8.0f, 5.0f);
-    style.ItemSpacing       = ImVec2(8.0f, 6.0f);
-    style.ItemInnerSpacing  = ImVec2(6.0f, 4.0f);
-    style.ScrollbarSize     = 13.0f;
-    style.GrabMinSize       = 12.0f;
-    style.WindowBorderSize  = 1.0f;
-    style.FrameBorderSize   = 0.0f;
-    style.PopupBorderSize   = 1.0f;
-
-    // Palette sombre d'ingénierie (Engineering Slate & Electric Azure)
-    ImVec4* colors = style.Colors;
-    colors[ImGuiCol_Text]                  = ImVec4(0.92f, 0.94f, 0.97f, 1.00f);
-    colors[ImGuiCol_TextDisabled]          = ImVec4(0.50f, 0.55f, 0.62f, 1.00f);
-    colors[ImGuiCol_WindowBg]              = ImVec4(0.10f, 0.12f, 0.16f, 0.95f);
-    colors[ImGuiCol_ChildBg]               = ImVec4(0.12f, 0.14f, 0.19f, 0.70f);
-    colors[ImGuiCol_PopupBg]               = ImVec4(0.11f, 0.13f, 0.18f, 0.98f);
-    colors[ImGuiCol_Border]                = ImVec4(0.22f, 0.27f, 0.36f, 0.60f);
-    colors[ImGuiCol_BorderShadow]          = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    colors[ImGuiCol_FrameBg]               = ImVec4(0.15f, 0.18f, 0.24f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.20f, 0.25f, 0.35f, 1.00f);
-    colors[ImGuiCol_FrameBgActive]         = ImVec4(0.24f, 0.30f, 0.42f, 1.00f);
-    colors[ImGuiCol_TitleBg]               = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
-    colors[ImGuiCol_TitleBgActive]         = ImVec4(0.14f, 0.18f, 0.26f, 1.00f);
-    colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.08f, 0.10f, 0.14f, 0.75f);
-    colors[ImGuiCol_MenuBarBg]             = ImVec4(0.12f, 0.14f, 0.19f, 1.00f);
-    colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.09f, 0.11f, 0.15f, 0.50f);
-    colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.24f, 0.29f, 0.39f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.32f, 0.40f, 0.54f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.38f, 0.48f, 0.64f, 1.00f);
-    colors[ImGuiCol_CheckMark]             = ImVec4(0.18f, 0.68f, 1.00f, 1.00f);
-    colors[ImGuiCol_SliderGrab]            = ImVec4(0.18f, 0.68f, 1.00f, 1.00f);
-    colors[ImGuiCol_SliderGrabActive]      = ImVec4(0.35f, 0.78f, 1.00f, 1.00f);
-    colors[ImGuiCol_Button]                = ImVec4(0.17f, 0.42f, 0.74f, 0.75f);
-    colors[ImGuiCol_ButtonHovered]         = ImVec4(0.22f, 0.52f, 0.90f, 1.00f);
-    colors[ImGuiCol_ButtonActive]          = ImVec4(0.14f, 0.38f, 0.68f, 1.00f);
-    colors[ImGuiCol_Header]                = ImVec4(0.18f, 0.42f, 0.72f, 0.45f);
-    colors[ImGuiCol_HeaderHovered]         = ImVec4(0.22f, 0.52f, 0.90f, 0.65f);
-    colors[ImGuiCol_HeaderActive]          = ImVec4(0.26f, 0.58f, 0.98f, 0.85f);
-    colors[ImGuiCol_Separator]             = ImVec4(0.22f, 0.27f, 0.36f, 0.70f);
-    colors[ImGuiCol_SeparatorHovered]      = ImVec4(0.30f, 0.44f, 0.68f, 0.80f);
-    colors[ImGuiCol_SeparatorActive]       = ImVec4(0.34f, 0.54f, 0.85f, 1.00f);
-    colors[ImGuiCol_ResizeGrip]            = ImVec4(0.18f, 0.38f, 0.62f, 0.30f);
-    colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.28f, 0.52f, 0.82f, 0.65f);
-    colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.34f, 0.62f, 0.94f, 0.90f);
-    colors[ImGuiCol_Tab]                   = ImVec4(0.13f, 0.16f, 0.22f, 0.86f);
-    colors[ImGuiCol_TabHovered]            = ImVec4(0.22f, 0.44f, 0.72f, 0.90f);
-    colors[ImGuiCol_TabActive]             = ImVec4(0.18f, 0.42f, 0.75f, 1.00f);
-    colors[ImGuiCol_TabUnfocused]          = ImVec4(0.10f, 0.12f, 0.17f, 0.80f);
-    colors[ImGuiCol_TabUnfocusedActive]    = ImVec4(0.15f, 0.26f, 0.42f, 1.00f);
-    colors[ImGuiCol_DockingPreview]        = ImVec4(0.20f, 0.55f, 0.95f, 0.45f);
-    colors[ImGuiCol_DockingEmptyBg]        = ImVec4(0.08f, 0.09f, 0.12f, 1.00f);
-    colors[ImGuiCol_PlotLines]             = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
-    colors[ImGuiCol_PlotLinesHovered]      = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
-    colors[ImGuiCol_PlotHistogram]         = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
-    colors[ImGuiCol_PlotHistogramHovered]  = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
-    colors[ImGuiCol_TableHeaderBg]         = ImVec4(0.15f, 0.19f, 0.26f, 1.00f);
-    colors[ImGuiCol_TableBorderStrong]     = ImVec4(0.26f, 0.32f, 0.42f, 1.00f);
-    colors[ImGuiCol_TableBorderLight]      = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
+    // Applique le thème sombre officiel de Hazelnut Editor (The Cherno)
+    Hazel::UI::SetDarkThemeColors();
 }
 
 void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderRemoveNode(dockspaceId);
-    ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
+    ImGui::DockBuilderAddNode(dockspaceId, static_cast<ImGuiDockNodeFlags>((int)ImGuiDockNodeFlags_DockSpace | (int)ImGuiDockNodeFlags_PassthruCentralNode));
     ImGui::DockBuilderSetNodeSize(dockspaceId, ImGui::GetMainViewport()->Size);
 
     ImGuiID dockMain = dockspaceId;
@@ -108,7 +40,8 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     // Diviser dockRight en haut (Inspecteur / Coupe) et bas (Résultats EF & Plugins C#)
     ImGuiID dockRightBottom = ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Down, 0.50f, nullptr, &dockRight);
 
-    // --- Gauche Haut : Explorateur de Modèle & Calques ---
+    // --- Gauche Haut : Hiérarchie de Scène Hazel & Calques ---
+    ImGui::DockBuilderDockWindow("Hiérarchie de Scène###SceneHierarchy", dockLeft);
     ImGui::DockBuilderDockWindow("Explorateur de Modèle###StructureExplorer", dockLeft);
     ImGui::DockBuilderDockWindow("Affichage & Calques###DisplayLayers", dockLeft);
 
@@ -117,7 +50,8 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Catalogue JSON Stabileo###JsonCatalog", dockLeftBottom);
     ImGui::DockBuilderDockWindow("Importateur DXF###DxfImporter", dockLeftBottom);
 
-    // --- Droite Haut : Inspecteur & Propriétés & Plans de Coupe ---
+    // --- Droite Haut : Inspecteur & Propriétés Hazel (DrawVec3Control) & Plans de Coupe ---
+    ImGui::DockBuilderDockWindow("Propriétés###EntityProperties", dockRight);
     ImGui::DockBuilderDockWindow("Inspecteur & Propriétés###Inspector", dockRight);
     ImGui::DockBuilderDockWindow("Plans de Coupe & Vues 2D###SectionPlanes", dockRight);
 
@@ -128,12 +62,13 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Eurocode 3 — Vérification Acier (C# Plugin)", dockRightBottom);
     ImGui::DockBuilderDockWindow("Générateur Paramétrique de Treillis (C#)", dockRightBottom);
 
-    // --- Bas : Sortie & Tables de Données ---
+    // --- Bas : Explorateur d'Assets Hazel, Sortie & Tables de Données ---
+    ImGui::DockBuilderDockWindow("Explorateur de Contenu (Assets)###ContentBrowser", dockBottom);
     ImGui::DockBuilderDockWindow("Journal de Calcul EF###SolverLog", dockBottom);
+    ImGui::DockBuilderDockWindow("Scripts & Plugins C# (Hazel)###CSharpScripting", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Nœuds###TableNodes", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Éléments###TableElements", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Réactions###TableReactions", dockBottom);
-    ImGui::DockBuilderDockWindow("Scripts & Plugins C# (Hazel)###CSharpScripting", dockBottom);
 
     // Si la fenêtre Vue 3D est explicitement demandée par l'utilisateur, on la docke au centre
     if (showViewport3D) {
@@ -179,6 +114,33 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
         float cubeCenterX = mainVp->WorkPos.x + mainVp->WorkSize.x - 390.0f;
         float cubeCenterY = mainVp->WorkPos.y + 65.0f;
         viewCube.draw(camera, boundsMin, boundsMax, cubeCenterX, cubeCenterY);
+    }
+
+    // --- Barre de Simulation Centrale inspirée de Hazel Engine (The Cherno) ---
+    drawHazelSimulationToolbar(structure, camera, boundsMin, boundsMax, state);
+
+    // Synchronisation de la sélection avec le panneau Hazel
+    sceneHierarchyPanel.setContext(&structure);
+    if (state.selectedNodeId != -1 && sceneHierarchyPanel.getSelectedId() != state.selectedNodeId) {
+        sceneHierarchyPanel.selectNode(state.selectedNodeId);
+    } else if (state.selectedElementId != -1 && sceneHierarchyPanel.getSelectedId() != state.selectedElementId) {
+        sceneHierarchyPanel.selectElement(state.selectedElementId);
+    }
+
+    // --- Panneaux Hazel Engine : Hiérarchie de Scène & Propriétés ---
+    if (showSceneHierarchy) {
+        sceneHierarchyPanel.onImGuiRender(state);
+    }
+
+    // --- Panneau Hazel Engine : Explorateur de Contenu (Assets) ---
+    if (showContentBrowser) {
+        contentBrowserPanel.onImGuiRender();
+        std::string cbLoad = contentBrowserPanel.getPendingLoadFile();
+        if (!cbLoad.empty()) pendingFixtureLoad = cbLoad;
+        std::string cbDxf = contentBrowserPanel.getPendingDxfFile();
+        if (!cbDxf.empty()) pendingDxfLoad = cbDxf;
+        std::string cbScript = contentBrowserPanel.getPendingScriptFile();
+        if (!cbScript.empty()) showCSharpScripting = true;
     }
 
     // --- 2. Fenêtres dockables : Explorateur & Calques ---
@@ -288,6 +250,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
         // ---- 3. AFFICHAGE (Visual Studio 2026 Standard) ----
         if (ImGui::BeginMenu("Affichage")) {
             if (ImGui::BeginMenu("Fenêtres d'Outils")) {
+                ImGui::MenuItem("Hiérarchie de Scène (Hazel)", nullptr, &showSceneHierarchy);
+                ImGui::MenuItem("Explorateur de Contenu (Hazel)", nullptr, &showContentBrowser);
+                ImGui::MenuItem("Barre de Simulation (Hazel)", nullptr, &showSimulationToolbar);
+                ImGui::Separator();
                 ImGui::MenuItem("Vue 3D Principale", "Ctrl+Alt+V", &showViewport3D);
                 ImGui::MenuItem("Explorateur de Modèle", "Ctrl+Alt+L", &showStructureExplorer);
                 ImGui::MenuItem("Inspecteur & Propriétés", "F4", &showInspector);
@@ -478,6 +444,109 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
 
         ImGui::EndMainMenuBar();
     }
+}
+
+void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& camera,
+                                          const glm::vec3& boundsMin, const glm::vec3& boundsMax, RenderState& state) {
+    if (!showSimulationToolbar) return;
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    float toolbarWidth = 590.0f;
+    float toolbarHeight = 44.0f;
+    float posX = vp->WorkPos.x + (vp->WorkSize.x - toolbarWidth) * 0.5f;
+    float posY = vp->WorkPos.y + 8.0f;
+
+    ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(toolbarWidth, toolbarHeight), ImGuiCond_Always);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
+                             ImGuiWindowFlags_NoDocking |
+                             ImGuiWindowFlags_AlwaysAutoResize |
+                             ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoFocusOnAppearing |
+                             ImGuiWindowFlags_NoNav;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 6.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.125f, 0.13f, 0.92f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.255f, 0.26f, 0.90f));
+
+    if (ImGui::Begin("##HazelSimulationToolbar", nullptr, flags)) {
+        // 1. Bouton Play (Résoudre EF)
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.55f, 0.28f, 0.85f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.65f, 0.32f, 1.0f));
+        if (ImGui::Button(" > Resoudre EF ", ImVec2(115.0f, 28.0f))) {
+            bool solved = solver::solveLinearStatic(structure);
+            if (solved) {
+                needsRebuild = true;
+                needsDeformedRebuild = true;
+                needsDiagramRebuild = true;
+                needsHeatmapRebuild = true;
+            }
+        }
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Resoudre la structure par la methode des elements finis 3D (Direct Stiffness Method)");
+
+        ImGui::SameLine();
+
+        // 2. Bouton Bascule Deformee
+        bool deformActive = state.showDeformed;
+        if (deformActive) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.45f, 0.80f, 0.90f));
+        }
+        if (ImGui::Button(" ~ Deformee ", ImVec2(95.0f, 28.0f))) {
+            state.showDeformed = !state.showDeformed;
+            needsDeformedRebuild = true;
+        }
+        if (deformActive) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Activer / Desactiver la visualisation de la deformee 3D");
+
+        ImGui::SameLine();
+
+        // 3. Bouton Bascule Diagrammes
+        bool diagActive = state.showDiagram;
+        if (diagActive) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.35f, 0.15f, 0.90f));
+        }
+        if (ImGui::Button(" # Diagrammes ", ImVec2(105.0f, 28.0f))) {
+            state.showDiagram = !state.showDiagram;
+            needsDiagramRebuild = true;
+        }
+        if (diagActive) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Afficher les diagrammes d'efforts internes (N, Vy, Vz, My, Mz)");
+
+        ImGui::SameLine();
+
+        // 4. Bouton Bascule Contraintes
+        bool heatActive = state.showHeatmap;
+        if (heatActive) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.15f, 0.45f, 0.90f));
+        }
+        if (ImGui::Button(" * Contraintes ", ImVec2(105.0f, 28.0f))) {
+            state.showHeatmap = !state.showHeatmap;
+            needsHeatmapRebuild = true;
+        }
+        if (heatActive) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Afficher la carte thermique des contraintes de von Mises");
+
+        ImGui::SameLine();
+
+        // 5. Bouton Camera Reset
+        if (ImGui::Button(" [O] Camera ", ImVec2(90.0f, 28.0f))) {
+            camera.fitToScene(boundsMin, boundsMax);
+        }
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Recentrer et cadrer la camera sur la structure");
+    }
+    ImGui::End();
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
 }
 
 void UIManager::drawQuickToolbar(Camera& /*camera*/, const glm::vec3& /*boundsMin*/, const glm::vec3& /*boundsMax*/, RenderState& /*state*/) {
