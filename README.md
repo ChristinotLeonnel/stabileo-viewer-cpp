@@ -1,8 +1,9 @@
 # StabileoViewer (C++20 / OpenGL 3.3 Core / C# Scripting)
 
-**StabileoViewer** est un moteur graphique 3D haute performance et un logiciel d'analyse par éléments finis (FEA) développé en **C++20**, **OpenGL 3.3 Core**, **Dear ImGui (Docking)**, **Eigen 3.4** et **.NET 6 CoreCLR (Scripting C#)**.
+**StabileoViewer** est un moteur graphique 3D haute performance et un logiciel de CAO, modélisation structurale et d'analyse par éléments finis (FEA) développé en **C++20**, **OpenGL 3.3 Core**, **Dear ImGui (Docking)**, **Eigen 3.4** et **.NET 6 CoreCLR (Scripting C#)**.
 
-Conçu pour le calcul, le dimensionnement réglementaire et la visualisation interactive des structures de génie civil et mécanique (bâtiments, tours, ponts à haubans/suspendus, dômes, treillis spatiaux, portiques industriels).
+> 📖 **[Consulter le Manuel d'Utilisation & Guide de Modélisation Structurale Complet (MANUEL_UTILISATION.md)](MANUEL_UTILISATION.md)**  
+> Retrouvez le tutoriel pas-à-pas pour dessiner une structure de A à Z (poteaux, poutres, dalles, appuis, charges), utiliser les outils d'accrochage 3D, exploiter les diagrammes d'efforts internes et créer des plugins C# avec Roslyn.
 
 ---
 
