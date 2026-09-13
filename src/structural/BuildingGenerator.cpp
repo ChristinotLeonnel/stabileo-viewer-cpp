@@ -180,12 +180,22 @@ void BuildingGenerator::syncToLegacyStructure(const ModelDatabase& db, model::St
     }
 
     // 3. Nœuds
+    //
+    // BUGFIX : ModelDatabase (nouveau système structural, style Robot) utilise
+    // la convention Z-up (X, Y horizontaux, Z = hauteur/niveaux), alors que
+    // model::Structure — utilisée par le solveur (LinearSolver, cf. détection
+    // de modèle plan sur nd.position.z), le rendu (Grid dessinée à y=0,
+    // Camera avec vecteur "up" = Y) et l'import DXF (transformPoint convertit
+    // explicitement Z-up -> Y-up) — utilise la convention Y-up.
+    // Sans cette conversion, le bâtiment généré (hauteurs stockées en Z)
+    // apparaissait couché sur le côté, et les charges de gravité (appliquées
+    // en -Y) poussaient horizontalement au lieu de vers le bas.
     for (const auto& [id, n] : db.getNodes()) {
         model::Node node;
         node.id = static_cast<int>(id);
         node.position = glm::vec3(static_cast<float>(n.position.x),
-                                  static_cast<float>(n.position.y),
-                                  static_cast<float>(n.position.z));
+                                  static_cast<float>(n.position.z),
+                                  -static_cast<float>(n.position.y));
         outStructure.nodes.push_back(node);
         nodeIdMap[id] = static_cast<int>(outStructure.nodes.size() - 1);
     }

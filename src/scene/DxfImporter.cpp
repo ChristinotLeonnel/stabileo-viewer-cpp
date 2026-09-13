@@ -213,6 +213,11 @@ model::Structure loadDxf(const std::string& filepath, const DxfImportOptions& op
     // Variables pour POLYLINE 3D
     std::vector<glm::vec3> poly3DVertices;
     bool inPolyline3D = false;
+    // Calque de la POLYLINE elle-même, capturé avant d'être écrasé par les
+    // sous-entités VERTEX (qui réinitialisent currentLayer à "0" à chaque
+    // nouvelle entité). Sans cela, tous les éléments 3DPOLYLINE se voyaient
+    // attribuer la section par défaut du calque "0" au lieu de leur vrai calque.
+    std::string polylineLayer = "0";
 
     auto finalizeCurrentEntity = [&]() {
         if (currentEntity == "LINE" || currentEntity == "3DLINE") {
@@ -327,9 +332,10 @@ model::Structure loadDxf(const std::string& filepath, const DxfImportOptions& op
                 if (value == "POLYLINE") {
                     inPolyline3D = true;
                     poly3DVertices.clear();
+                    polylineLayer = "0";
                 } else if (value == "SEQEND") {
                     if (inPolyline3D && poly3DVertices.size() >= 2) {
-                        int secId = getOrCreateSectionForLayer(currentLayer, st, layerToSectionId);
+                        int secId = getOrCreateSectionForLayer(polylineLayer, st, layerToSectionId);
                         for (size_t i = 0; i + 1 < poly3DVertices.size(); ++i) {
                             glm::vec3 pA = poly3DVertices[i];
                             glm::vec3 pB = poly3DVertices[i + 1];
@@ -356,6 +362,7 @@ model::Structure loadDxf(const std::string& filepath, const DxfImportOptions& op
         } else if (inEntities) {
             if (code == 8) {
                 currentLayer = value;
+                if (currentEntity == "POLYLINE") polylineLayer = value;
             } else if (currentEntity == "LINE" || currentEntity == "3DLINE") {
                 if (code == 10) { x1 = std::stof(value); hasP1 = true; }
                 else if (code == 20) { y1 = std::stof(value); hasP1 = true; }

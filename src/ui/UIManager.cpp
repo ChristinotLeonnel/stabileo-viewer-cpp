@@ -394,6 +394,40 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             if (ImGui::MenuItem("Réorganiser toutes les fenêtres (Disposition VS 2026)")) {
                 resetLayout();
             }
+            if (ImGui::MenuItem("Disposition Essentielle (Recommandée)")) {
+                // Ne réaffiche que les panneaux nécessaires au workflow courant ;
+                // les panneaux avancés/occasionnels repassent dans le menu
+                // Affichage > Fenêtres d'Outils, accessibles à tout moment.
+                showStructuralModeler = true;
+                showSceneHierarchy = true;
+                showEntityProperties = true;
+                showDisplayLayers = true;
+                showSimulationToolbar = true;
+                showViewCube = true;
+
+                showContentBrowser = false;
+                showViewport3D = false;
+                showStructureExplorer = false;
+                showInspector = false;
+                showSectionPlanes = false;
+                showDeformedResults = false;
+                showDiagramsResults = false;
+                showHeatmapResults = false;
+                showCppCatalog = false;
+                showJsonCatalog = false;
+                showDxfImporter = false;
+                showTableNodes = false;
+                showTableElements = false;
+                showTableReactions = false;
+                showSolverLog = false;
+                showCSharpScripting = false;
+                showDemoImGui = false;
+                resetLayout();
+            }
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Referme les panneaux secondaires et ne garde que l'essentiel :\n"
+                                  "Modélisation, Hiérarchie, Propriétés, Calques et barre de simulation.");
+            }
             ImGui::Separator();
             if (ImGui::MenuItem("Afficher tous les panneaux")) {
                 showStructuralModeler = true;
@@ -406,6 +440,13 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 showDisplayLayers = true;
                 showInspector = true;
                 showSectionPlanes = true;
+                showViewCube = true;
+                showDeformedResults = true;
+                showDiagramsResults = true;
+                showHeatmapResults = true;
+                showCppCatalog = true;
+                showJsonCatalog = true;
+                showDxfImporter = true;
                 showTableNodes = true;
                 showTableElements = true;
                 showTableReactions = true;
@@ -1280,23 +1321,23 @@ void UIManager::drawViewportWindow(Camera& camera, GLuint textureId,
             if (ImGui::Begin("##ViewportOverlayToolbar", nullptr, barFlags)) {
                 ImGui::TextDisabled("Vue :");
                 ImGui::SameLine();
-                if (ImGui::Button("Face")) camera.setFrontView();
+                if (ImGui::Button("Face##Overlay")) camera.setFrontView();
                 ImGui::SameLine();
-                if (ImGui::Button("Plan")) camera.setTopView();
+                if (ImGui::Button("Plan##Overlay")) camera.setTopView();
                 ImGui::SameLine();
-                if (ImGui::Button("Côté")) camera.setSideView();
+                if (ImGui::Button("Côté##Overlay")) camera.setSideView();
                 ImGui::SameLine();
-                if (ImGui::Button("Iso")) camera.setIsometricView();
+                if (ImGui::Button("Iso##Overlay")) camera.setIsometricView();
                 ImGui::SameLine();
-                if (ImGui::Button("Cadrer (F)")) camera.fitToScene(boundsMin, boundsMax);
+                if (ImGui::Button("Cadrer (F)##Overlay")) camera.fitToScene(boundsMin, boundsMax);
                 ImGui::SameLine();
-                if (ImGui::Button(camera.orthographic ? "Persp" : "Ortho")) {
+                if (ImGui::Button(camera.orthographic ? "Persp##Overlay" : "Ortho##Overlay")) {
                     camera.orthographic = !camera.orthographic;
                 }
                 ImGui::SameLine();
                 ImGui::TextDisabled("|");
                 ImGui::SameLine();
-                if (ImGui::Button(state.sectionPlanes.active() ? "Coupe: Active" : "Coupe")) {
+                if (ImGui::Button(state.sectionPlanes.active() ? "Coupe: Active##Overlay" : "Coupe##Overlay")) {
                     showSectionPlanes = !showSectionPlanes;
                 }
             }

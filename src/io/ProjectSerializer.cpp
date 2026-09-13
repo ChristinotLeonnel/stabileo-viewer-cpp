@@ -129,9 +129,19 @@ bool ProjectSerializer::loadFromFile(structural::ModelDatabase& db, const std::s
 
         db.clear();
 
+        // BUGFIX : sectionId/materialId étaient bien écrits par saveToFile (voir
+        // jm["sectionId"], jm["materialId"], jp["materialId"]) mais jamais relus
+        // ici : les tables de correspondance ancien -> nouvel EntityId n'existaient
+        // pas, et addMember()/addPanel() étaient appelés sans section/matériau,
+        // ce qui réaffectait silencieusement les valeurs par défaut à chaque
+        // rechargement de projet (perte des affectations section/matériau).
+        std::unordered_map<uint64_t, structural::EntityId> oldToNewMaterials;
+        std::unordered_map<uint64_t, structural::EntityId> oldToNewSections;
+
         // 1. Matériaux
         if (root.contains("materials")) {
             for (const auto& jm : root["materials"]) {
+                uint64_t oldId = jm.value("id", 0);
                 structural::Material m;
                 m.name = jm.value("name", "Béton C25/30");
                 m.category = static_cast<structural::MaterialCategory>(jm.value("category", 0));
@@ -139,13 +149,15 @@ bool ProjectSerializer::loadFromFile(structural::ModelDatabase& db, const std::s
                 m.nu = jm.value("nu", 0.2);
                 m.rho = jm.value("rho", 2500.0);
                 m.fck = jm.value("fck", 25.0e6);
-                db.addMaterial(m);
+                structural::EntityId newId = db.addMaterial(m);
+                oldToNewMaterials[oldId] = newId;
             }
         }
 
         // 2. Sections
         if (root.contains("sections")) {
             for (const auto& js : root["sections"]) {
+                uint64_t oldId = js.value("id", 0);
                 structural::Section s;
                 s.name = js.value("name", "POT 30x30");
                 s.shape = static_cast<structural::Section::Shape>(js.value("shape", 0));
@@ -155,7 +167,8 @@ bool ProjectSerializer::loadFromFile(structural::ModelDatabase& db, const std::s
                 s.Iy = js.value("Iy", 6.75e-4);
                 s.Iz = js.value("Iz", 6.75e-4);
                 s.It = js.value("It", 1.14e-3);
-                db.addSection(s);
+                structural::EntityId newId = db.addSection(s);
+                oldToNewSections[oldId] = newId;
             }
         }
 
@@ -179,8 +192,16 @@ bool ProjectSerializer::loadFromFile(structural::ModelDatabase& db, const std::s
                 uint64_t eNode = jm.value("endNode", 0);
                 auto type = static_cast<structural::MemberType>(jm.value("type", 0));
 
+                uint64_t oldSectionId = jm.value("sectionId", 0);
+                uint64_t oldMaterialId = jm.value("materialId", 0);
+                structural::EntityId sectionId = oldToNewSections.count(oldSectionId)
+                    ? oldToNewSections[oldSectionId] : structural::INVALID_ID;
+                structural::EntityId materialId = oldToNewMaterials.count(oldMaterialId)
+                    ? oldToNewMaterials[oldMaterialId] : structural::INVALID_ID;
+
                 if (oldToNewNodes.count(sNode) && oldToNewNodes.count(eNode)) {
-                    structural::EntityId mId = db.addMember(oldToNewNodes[sNode], oldToNewNodes[eNode], type);
+                    structural::EntityId mId = db.addMember(oldToNewNodes[sNode], oldToNewNodes[eNode],
+                                                            type, sectionId, materialId);
                     auto* mem = db.getMember(mId);
                     if (mem) {
                         mem->rollAngleDeg = jm.value("rollAngle", 0.0);
@@ -205,7 +226,10 @@ bool ProjectSerializer::loadFromFile(structural::ModelDatabase& db, const std::s
                 }
                 double thick = jp.value("thickness", 0.15);
                 auto pType = static_cast<structural::PanelType>(jp.value("type", 0));
-                db.addPanel(newNodes, thick, structural::INVALID_ID, pType);
+                uint64_t oldMaterialId = jp.value("materialId", 0);
+                structural::EntityId materialId = oldToNewMaterials.count(oldMaterialId)
+                    ? oldToNewMaterials[oldMaterialId] : structural::INVALID_ID;
+                db.addPanel(newNodes, thick, materialId, pType);
             }
         }
 

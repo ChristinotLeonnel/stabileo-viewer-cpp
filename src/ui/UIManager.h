@@ -57,37 +57,51 @@ public:
     bool needsHeatmapRebuild  = false;
 
     // Panneaux inspirés de Hazel Engine (The Cherno)
+    // -------------------------------------------------------------------
+    // ERGONOMIE : seuls les panneaux réellement nécessaires au workflow
+    // courant (modéliser / naviguer / lancer un calcul) sont visibles par
+    // défaut. Tous les autres restent accessibles à tout moment via le
+    // menu "Affichage > Fenêtres d'Outils" (cases à cocher) sans être
+    // imposés à l'écran dès le lancement.
+    // -------------------------------------------------------------------
     SceneHierarchyPanel sceneHierarchyPanel;
     ContentBrowserPanel contentBrowserPanel;
     stabileo::ui::StructuralModelPanel structuralModelPanel;
-    bool showSceneHierarchy    = true;
-    bool showEntityProperties  = true;
-    bool showContentBrowser    = true;
-    bool showSimulationToolbar = true;
-    bool showStructuralModeler = true;
+    bool showSceneHierarchy    = true;  // Essentiel : navigation dans le modèle
+    bool showEntityProperties  = true;  // Essentiel : édition de l'objet sélectionné
+    bool showContentBrowser    = false; // Secondaire : accessible via Affichage > Fenêtres d'Outils
+    bool showSimulationToolbar = true;  // Essentiel : barre flottante légère (Résoudre / Déformée / Diagrammes...)
+    bool showStructuralModeler = true;  // Essentiel : outil de modélisation principal (Robot CAO)
 
     // Mode Plein Écran (F11)
     bool isFullscreen             = false;
     bool pendingToggleFullscreen  = false;
 
     // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026 / Hazelnut)
+    //
+    // Par défaut, seuls les panneaux nécessaires à la prise en main immédiate
+    // (modélisation + affichage de base) sont ouverts. Les panneaux d'analyse
+    // avancée, catalogues, tables et journaux sont fermés au démarrage pour
+    // dégager la vue 3D, mais restent à un clic dans Affichage > Fenêtres
+    // d'Outils (ou via les menus Résultats / Calcul EF / Outils qui les
+    // ouvrent automatiquement à la demande).
     bool showViewport3D       = false; // Désactivé : la scène 3D s'affiche directement plein écran sans superposition
     bool showStructureExplorer = false; // Intégré dans la Hiérarchie de Scène Hazel
-    bool showDisplayLayers    = true;
-    bool showSectionPlanes    = true;
-    bool showDeformedResults  = true;
-    bool showDiagramsResults  = true;
-    bool showHeatmapResults   = true;
-    bool showInspector        = false; // Remplacé par le panneau Propriétés Hazel avec DrawVec3Control
-    bool showCppCatalog       = true;
-    bool showJsonCatalog      = true;
-    bool showDxfImporter      = true;
-    bool showTableNodes       = true;
-    bool showTableElements    = true;
-    bool showTableReactions   = true;
-    bool showSolverLog        = true;
+    bool showDisplayLayers    = true;   // Essentiel : bascule grille / axes / calques d'affichage
+    bool showSectionPlanes    = false;  // Secondaire (outil avancé) : Affichage > Fenêtres d'Outils
+    bool showDeformedResults  = false;  // Secondaire : panneau d'options (l'aperçu se pilote depuis la barre de simulation)
+    bool showDiagramsResults  = false;  // Secondaire : idem, ouvert automatiquement depuis "Résultats" si besoin
+    bool showHeatmapResults   = false;  // Secondaire : idem
+    bool showInspector        = false;  // Remplacé par le panneau Propriétés Hazel avec DrawVec3Control
+    bool showCppCatalog       = false;  // Secondaire : Fichier > Nouveau Modèle couvre l'usage courant
+    bool showJsonCatalog      = false;  // Secondaire : Fichier > Ouvrir Catalogue JSON (Ctrl+O) l'ouvre à la demande
+    bool showDxfImporter      = false;  // Secondaire : Fichier > Importer DXF (Ctrl+I) l'ouvre à la demande
+    bool showTableNodes       = false;  // Secondaire : pertinent seulement après un calcul EF
+    bool showTableElements    = false;  // Secondaire : idem
+    bool showTableReactions   = false;  // Secondaire : idem
+    bool showSolverLog        = false;  // Secondaire : Calcul EF > Afficher le Journal l'ouvre à la demande
     bool showDemoImGui        = false;
-    bool showCSharpScripting  = true;
+    bool showCSharpScripting  = false;  // Secondaire (avancé) : s'ouvre automatiquement si un script est chargé
 
 private:
     void drawMainMenuBar(model::Structure& structure, Camera& camera,

@@ -288,15 +288,19 @@ namespace Hazel::UI {
         float lineHeight = ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2.0f;
         ImGui::Separator();
 
-        bool open = ImGui::TreeNodeEx((void*)typeid(std::string).hash_code(), treeNodeFlags, "%s", name.c_str());
+        // Utilise name comme identifiant unique pour TreeNodeEx afin d'éviter tout conflit d'ID Dear ImGui
+        bool open = ImGui::TreeNodeEx(name.c_str(), treeNodeFlags, "%s", name.c_str());
         ImGui::PopStyleVar();
 
+        // Bouton '+' et popup uniques par composant (suffixe ##name)
         ImGui::SameLine(contentRegionAvailable.x - lineHeight * 0.5f);
-        if (ImGui::Button("+", ImVec2{ lineHeight, lineHeight })) {
-            ImGui::OpenPopup("ComponentSettings");
+        std::string btnId = "+##" + name;
+        std::string popupId = "ComponentSettings##" + name;
+        if (ImGui::Button(btnId.c_str(), ImVec2{ lineHeight, lineHeight })) {
+            ImGui::OpenPopup(popupId.c_str());
         }
 
-        if (ImGui::BeginPopup("ComponentSettings")) {
+        if (ImGui::BeginPopup(popupId.c_str())) {
             if (ImGui::MenuItem("Réinitialiser les paramètres")) {
                 // Action contextuelle
             }

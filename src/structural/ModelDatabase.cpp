@@ -357,7 +357,10 @@ void ModelDatabase::clear() {
     nodes_.clear();
     members_.clear();
     panels_.clear();
+    materials_.clear();
+    sections_.clear();
     supports_.clear();
+    loadCases_.clear();
     loads_.clear();
     combinations_.clear();
     nextId_ = 1;
