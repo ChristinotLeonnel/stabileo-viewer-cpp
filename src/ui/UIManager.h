@@ -69,6 +69,7 @@ public:
     bool showTableReactions   = true;
     bool showSolverLog        = true;
     bool showDemoImGui        = false;
+    bool showCSharpScripting  = true;
 
 private:
     void drawMainMenuBar(model::Structure& structure, Camera& camera,

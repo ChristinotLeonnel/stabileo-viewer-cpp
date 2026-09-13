@@ -4,6 +4,7 @@
 
 #include "ui/UIManager.h"
 #include "scene/ModelLoader.h"
+#include "scripting/ScriptEngine.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <cmath>
@@ -133,6 +134,9 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Table : Éléments###TableElements", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Réactions###TableReactions", dockBottom);
     ImGui::DockBuilderDockWindow("Journal de Calcul EF###SolverLog", dockBottom);
+    ImGui::DockBuilderDockWindow("Scripts & Plugins C# (Hazel)###CSharpScripting", dockBottom);
+    ImGui::DockBuilderDockWindow("Eurocode 3 — Vérification Acier (C# Plugin)", dockRightBottom);
+    ImGui::DockBuilderDockWindow("Générateur Paramétrique de Treillis (C#)", dockRightBottom);
 
     ImGui::DockBuilderFinish(dockspaceId);
 }
@@ -191,6 +195,12 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
     if (showTableElements)     drawTableElementsWindow(structure);
     if (showTableReactions)    drawTableReactionsWindow(structure);
     if (showSolverLog)         drawSolverLogWindow(structure);
+
+    // --- 6. Moteur de Scripting C# (Hazel Engine) & Plugins ---
+    scripting::ScriptEngine::onUIRender();
+    if (showCSharpScripting) {
+        scripting::ScriptEngine::drawScriptingWindow(&showCSharpScripting);
+    }
 
     if (showDemoImGui) {
         ImGui::ShowDemoWindow(&showDemoImGui);
@@ -377,6 +387,8 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             if (ImGui::MenuItem("Plans de Coupe & Slicing", nullptr, &showSectionPlanes)) {}
             if (ImGui::MenuItem("Cube de Navigation 3D", nullptr, &showViewCube)) {}
             ImGui::Separator();
+            if (ImGui::MenuItem("Scripts & Plugins C# (Moteur Hazel)", nullptr, &showCSharpScripting)) {}
+            ImGui::Separator();
             ImGui::MenuItem("Grille spatiale", nullptr, &state.showGrid);
             ImGui::MenuItem("Axes locaux des barres", nullptr, &state.showLocalAxes);
             ImGui::EndMenu();
@@ -398,7 +410,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 showTableElements = true;
                 showTableReactions = true;
                 showSolverLog = true;
+                showCSharpScripting = true;
             }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Scripts & Plugins C# (Hazel)", nullptr, &showCSharpScripting)) {}
             ImGui::EndMenu();
         }
 

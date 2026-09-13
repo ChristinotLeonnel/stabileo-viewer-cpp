@@ -18,6 +18,7 @@
 #include "scene/StructureModel.h"
 #include "solver/LinearSolver.h"
 #include "ui/UIManager.h"
+#include "scripting/ScriptEngine.h"
 
 #include <iostream>
 #include <chrono>
@@ -286,8 +287,15 @@ int main(int argc, char* argv[]) {
             std::cout << "           Nœuds: " << trussSt.nodes.size() << ", Éléments: " << trussSt.elements.size() << "\n";
             trussOk = solved;
         }
+        std::cout << "[Test C# ScriptEngine] Initialisation du runtime .NET CoreCLR & Roslyn...\n";
+        bool scriptRebuild = false;
+        bool scriptOk = scripting::ScriptEngine::init(&dxfSt, &scriptRebuild);
+        int pluginCount = scripting::ScriptEngine::getLoadedPluginCount();
+        std::cout << "[Test C# ScriptEngine] Statut : " << (scriptOk ? "SUCCÈS" : "ÉCHEC")
+                  << " | " << pluginCount << " plugin(s) C# actif(s).\n";
+        scripting::ScriptEngine::shutdown();
 
-        return (ok && dxfOk && trussOk) ? 0 : 1;
+        return (ok && dxfOk && trussOk && scriptOk) ? 0 : 1;
     }
 
     // ---- Initialisation GLFW ----
@@ -381,6 +389,10 @@ int main(int argc, char* argv[]) {
     renderer.rebuild(currentStructure);
     currentStructure.computeBounds(appCtx.boundsMin, appCtx.boundsMax);
     appCtx.camera.fitToScene(appCtx.boundsMin, appCtx.boundsMax);
+
+    // Initialisation du sous-système de Scripting C# (CoreCLR / Hazel Engine)
+    bool csharpNeedsRebuild = false;
+    scripting::ScriptEngine::init(&currentStructure, &csharpNeedsRebuild);
 
     auto loadStructureAndApply = [&](model::Structure&& newSt) {
         if (newSt.nodes.empty()) return;
@@ -509,8 +521,13 @@ int main(int argc, char* argv[]) {
                          fbo.texture);
 
         // Traitement des flags de rebuild
-        if (uiManager.needsRebuild) {
+        if (uiManager.needsRebuild || csharpNeedsRebuild) {
             renderer.rebuild(currentStructure);
+            currentStructure.computeBounds(appCtx.boundsMin, appCtx.boundsMax);
+            if (csharpNeedsRebuild) {
+                appCtx.camera.fitToScene(appCtx.boundsMin, appCtx.boundsMax);
+                csharpNeedsRebuild = false;
+            }
         }
         if (uiManager.needsDeformedRebuild && renderState.showDeformed) {
             renderer.rebuildDeformed(currentStructure, renderState.deformScale);
@@ -561,6 +578,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Nettoyage
+    scripting::ScriptEngine::shutdown();
     fbo.cleanup();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
