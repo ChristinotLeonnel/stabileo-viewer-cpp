@@ -45,9 +45,18 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
     nodeInfos_.clear();
     reactionMeshes_.clear();
 
+    boundsMin_ = glm::vec3(1e9f);
+    boundsMax_ = glm::vec3(-1e9f);
+
     // ---- Nœuds ----
     for (auto& nd : structure.nodes) {
+        boundsMin_ = glm::min(boundsMin_, nd.position);
+        boundsMax_ = glm::max(boundsMax_, nd.position);
         nodeInfos_.push_back({nd.position, COL_NODE, nd.id});
+    }
+    if (structure.nodes.empty()) {
+        boundsMin_ = glm::vec3(-5.0f);
+        boundsMax_ = glm::vec3(5.0f);
     }
 
     // ---- Éléments (profilés 3D extrudés) ----
@@ -70,6 +79,9 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
         mi.model = glm::mat4(1.0f);
         mi.color = COL_ELEMENT;
         mi.id    = elem.id;
+        mi.p1    = nI->position;
+        mi.p2    = nJ->position;
+        mi.hasP2 = true;
         elementMeshes_.push_back(std::move(mi));
     }
 
@@ -87,6 +99,8 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
         m = glm::translate(m, glm::vec3(0, -gizmoSize * 0.5f, 0));
         mi.model = m;
         mi.color = COL_SUPPORT;
+        mi.p1    = nd->position;
+        mi.hasP2 = false;
         supportMeshes_.push_back(std::move(mi));
     }
 
@@ -119,6 +133,8 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
 
             mi.model = glm::translate(glm::mat4(1.0f), nd->position) * rot;
             mi.color = COL_LOAD;
+            mi.p1    = nd->position;
+            mi.hasP2 = false;
             loadMeshes_.push_back(std::move(mi));
         }
     }
@@ -143,6 +159,9 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
                                                     ly, lz, maxDistLoad, 8);
         mi.model = glm::mat4(1.0f);
         mi.color = COL_LOAD;
+        mi.p1    = nI->position;
+        mi.p2    = nJ->position;
+        mi.hasP2 = true;
         loadMeshes_.push_back(std::move(mi));
     }
 
@@ -171,6 +190,8 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
         }
         mi.model = glm::translate(glm::mat4(1.0f), nd->position - dir * 0.5f) * rot;
         mi.color = COL_REACTION;
+        mi.p1    = nd->position;
+        mi.hasP2 = false;
         reactionMeshes_.push_back(std::move(mi));
     }
 }
@@ -190,6 +211,9 @@ void StructureRenderer::rebuildDeformed(const model::Structure& structure, float
         mi.model = glm::mat4(1.0f);
         mi.color = COL_DEFORMED;
         mi.alpha = 0.85f;
+        mi.p1    = nI->position;
+        mi.p2    = nJ->position;
+        mi.hasP2 = true;
         deformedMeshes_.push_back(std::move(mi));
     }
 }
@@ -213,6 +237,9 @@ void StructureRenderer::rebuildDiagrams(const model::Structure& structure,
         fill.mesh = scene::createDiagramRibbon(elem, *nI, *nJ, type, scale);
         fill.model = glm::mat4(1.0f);
         fill.alpha = 0.45f;
+        fill.p1    = nI->position;
+        fill.p2    = nJ->position;
+        fill.hasP2 = true;
         diagramFills_.push_back(std::move(fill));
 
         // Contour opaque
@@ -220,6 +247,9 @@ void StructureRenderer::rebuildDiagrams(const model::Structure& structure,
         line.mesh = scene::createDiagramOutline(elem, *nI, *nJ, type, scale);
         line.model = glm::mat4(1.0f);
         line.alpha = 1.0f;
+        line.p1    = nI->position;
+        line.p2    = nJ->position;
+        line.hasP2 = true;
         diagramLines_.push_back(std::move(line));
     }
 }
@@ -285,14 +315,25 @@ void StructureRenderer::rebuildHeatmap(const model::Structure& structure) {
         MeshInstance mi;
         mi.mesh.uploadHeatmap(verts, idx);
         mi.model = glm::mat4(1.0f);
+        mi.p1    = nI->position;
+        mi.p2    = nJ->position;
+        mi.hasP2 = true;
         heatmapMeshes_.push_back(std::move(mi));
     }
 }
 
 // ---- Helper : dessiner des instances Phong ----
 void StructureRenderer::drawPhongInstances(const std::vector<MeshInstance>& instances,
-                                            const Camera& /*cam*/, int selectedId) const {
+                                            const Camera& /*cam*/, int selectedId,
+                                            const scene::SectionPlanes* sp) const {
     for (auto& mi : instances) {
+        if (sp && sp->active()) {
+            if (mi.hasP2) {
+                if (!sp->isElementVisible(mi.p1, mi.p2)) continue;
+            } else {
+                if (!sp->isPointVisible(mi.p1)) continue;
+            }
+        }
         phongShader_.setMat4("uModel", mi.model);
         glm::mat3 nm = glm::inverseTranspose(glm::mat3(mi.model));
         phongShader_.setMat3("uNormalMatrix", nm);
@@ -303,12 +344,110 @@ void StructureRenderer::drawPhongInstances(const std::vector<MeshInstance>& inst
     }
 }
 
+// ---- Dessin du gizmo visuel de plan de coupe ----
+void StructureRenderer::drawSectionPlaneGizmos(const Camera& camera, const scene::SectionPlanes& sp) const {
+    if (!sp.active()) return;
+
+    glm::mat4 view = camera.getViewMatrix();
+    glm::mat4 proj = camera.getProjectionMatrix();
+
+    flatShader_.use();
+    flatShader_.setMat4("uView", view);
+    flatShader_.setMat4("uProjection", proj);
+    flatShader_.setMat4("uModel", glm::mat4(1.0f));
+
+    float m = 0.6f;
+    glm::vec3 minP = boundsMin_ - glm::vec3(m);
+    glm::vec3 maxP = boundsMax_ + glm::vec3(m);
+
+    auto drawSinglePlane = [&](int axis, float pos) {
+        std::vector<ColorVertex> quadVerts;
+        std::vector<uint32_t> quadIndices;
+        std::vector<ColorVertex> lineVerts;
+
+        glm::vec3 cQuad(0.12f, 0.62f, 0.95f);
+        glm::vec3 cLine(0.35f, 0.85f, 1.00f);
+
+        glm::vec3 p0, p1, p2, p3;
+        if (axis == 1) { // Plan horizontal Y
+            p0 = glm::vec3(minP.x, pos, minP.z);
+            p1 = glm::vec3(maxP.x, pos, minP.z);
+            p2 = glm::vec3(maxP.x, pos, maxP.z);
+            p3 = glm::vec3(minP.x, pos, maxP.z);
+        } else if (axis == 0) { // Plan vertical X
+            p0 = glm::vec3(pos, minP.y, minP.z);
+            p1 = glm::vec3(pos, maxP.y, minP.z);
+            p2 = glm::vec3(pos, maxP.y, maxP.z);
+            p3 = glm::vec3(pos, minP.y, maxP.z);
+        } else { // Plan vertical Z
+            p0 = glm::vec3(minP.x, minP.y, pos);
+            p1 = glm::vec3(maxP.x, minP.y, pos);
+            p2 = glm::vec3(maxP.x, maxP.y, pos);
+            p3 = glm::vec3(minP.x, maxP.y, pos);
+        }
+
+        // Quad recto-verso
+        quadVerts.push_back({p0, cQuad});
+        quadVerts.push_back({p1, cQuad});
+        quadVerts.push_back({p2, cQuad});
+        quadVerts.push_back({p3, cQuad});
+        quadIndices = {0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2};
+
+        // Lignes de contour
+        lineVerts.push_back({p0, cLine}); lineVerts.push_back({p1, cLine});
+        lineVerts.push_back({p1, cLine}); lineVerts.push_back({p2, cLine});
+        lineVerts.push_back({p2, cLine}); lineVerts.push_back({p3, cLine});
+        lineVerts.push_back({p3, cLine}); lineVerts.push_back({p0, cLine});
+
+        // Croix centrale de repère
+        glm::vec3 mid1 = (p0 + p1) * 0.5f;
+        glm::vec3 mid2 = (p2 + p3) * 0.5f;
+        glm::vec3 mid3 = (p1 + p2) * 0.5f;
+        glm::vec3 mid4 = (p3 + p0) * 0.5f;
+        lineVerts.push_back({mid1, cLine * 0.7f}); lineVerts.push_back({mid2, cLine * 0.7f});
+        lineVerts.push_back({mid3, cLine * 0.7f}); lineVerts.push_back({mid4, cLine * 0.7f});
+
+        sectionQuadMesh_.uploadColor(quadVerts, quadIndices);
+        sectionLinesMesh_.uploadLines(lineVerts);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);
+
+        flatShader_.setFloat("uAlpha", 0.18f);
+        sectionQuadMesh_.draw();
+
+        glLineWidth(2.0f);
+        flatShader_.setFloat("uAlpha", 0.85f);
+        sectionLinesMesh_.draw();
+        glLineWidth(1.0f);
+
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+    };
+
+    if (sp.clipY) {
+        drawSinglePlane(1, sp.posY);
+        if (sp.sliceMode) drawSinglePlane(1, sp.posY + sp.dirY * sp.sliceThickness);
+    }
+    if (sp.clipX) {
+        drawSinglePlane(0, sp.posX);
+        if (sp.sliceMode) drawSinglePlane(0, sp.posX + sp.dirX * sp.sliceThickness);
+    }
+    if (sp.clipZ) {
+        drawSinglePlane(2, sp.posZ);
+        if (sp.sliceMode) drawSinglePlane(2, sp.posZ + sp.dirZ * sp.sliceThickness);
+    }
+}
+
 // ---- Dessin principal ----
 void StructureRenderer::draw(const Camera& camera, const RenderState& state, float time) {
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 proj = camera.getProjectionMatrix();
     glm::vec3 camPos = camera.getPosition();
     glm::vec3 lightDir = glm::normalize(glm::vec3(0.4f, 0.8f, 0.5f));
+
+    const scene::SectionPlanes* sp = state.sectionPlanes.active() ? &state.sectionPlanes : nullptr;
 
     // ---- Grille ----
     if (state.showGrid) {
@@ -337,6 +476,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
             heatmapShader_.setVec3("uViewPos", camPos);
             heatmapShader_.setInt("uColormapType", state.colormapType);
             for (auto& mi : heatmapMeshes_) {
+                if (sp && !sp->isElementVisible(mi.p1, mi.p2)) continue;
                 heatmapShader_.setMat4("uModel", mi.model);
                 glm::mat3 nm = glm::inverseTranspose(glm::mat3(mi.model));
                 heatmapShader_.setMat3("uNormalMatrix", nm);
@@ -348,7 +488,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
             phongShader_.setMat4("uProjection", proj);
             phongShader_.setVec3("uLightDir", lightDir);
             phongShader_.setVec3("uViewPos", camPos);
-            drawPhongInstances(elementMeshes_, camera, state.selectedElementId);
+            drawPhongInstances(elementMeshes_, camera, state.selectedElementId, sp);
         }
     }
 
@@ -361,7 +501,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         phongShader_.setMat4("uProjection", proj);
         phongShader_.setVec3("uLightDir", lightDir);
         phongShader_.setVec3("uViewPos", camPos);
-        drawPhongInstances(deformedMeshes_, camera);
+        drawPhongInstances(deformedMeshes_, camera, -1, sp);
         glDisable(GL_BLEND);
     }
 
@@ -372,7 +512,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         phongShader_.setMat4("uProjection", proj);
         phongShader_.setVec3("uLightDir", lightDir);
         phongShader_.setVec3("uViewPos", camPos);
-        drawPhongInstances(supportMeshes_, camera);
+        drawPhongInstances(supportMeshes_, camera, -1, sp);
     }
 
     // ---- Charges ----
@@ -382,7 +522,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         phongShader_.setMat4("uProjection", proj);
         phongShader_.setVec3("uLightDir", lightDir);
         phongShader_.setVec3("uViewPos", camPos);
-        drawPhongInstances(loadMeshes_, camera);
+        drawPhongInstances(loadMeshes_, camera, -1, sp);
     }
 
     // ---- Réactions ----
@@ -392,7 +532,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         phongShader_.setMat4("uProjection", proj);
         phongShader_.setVec3("uLightDir", lightDir);
         phongShader_.setVec3("uViewPos", camPos);
-        drawPhongInstances(reactionMeshes_, camera);
+        drawPhongInstances(reactionMeshes_, camera, -1, sp);
     }
 
     // ---- Diagrammes ----
@@ -405,6 +545,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         for (auto& mi : diagramFills_) {
+            if (sp && !sp->isElementVisible(mi.p1, mi.p2)) continue;
             flatShader_.setMat4("uModel", mi.model);
             flatShader_.setFloat("uAlpha", mi.alpha);
             mi.mesh.draw();
@@ -414,6 +555,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
         // Contour
         glLineWidth(2.0f);
         for (auto& mi : diagramLines_) {
+            if (sp && !sp->isElementVisible(mi.p1, mi.p2)) continue;
             flatShader_.setMat4("uModel", mi.model);
             flatShader_.setFloat("uAlpha", 1.0f);
             mi.mesh.draw();
@@ -432,6 +574,8 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
 
         float nodeRadius = 0.06f;
         for (auto& ni : nodeInfos_) {
+            if (sp && !sp->isPointVisible(ni.pos)) continue;
+
             bool selected = (ni.id == state.selectedNodeId);
             // Le nœud sélectionné est agrandi pour rester bien visible :
             // un simple changement de couleur est difficile à repérer sur
@@ -447,6 +591,11 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
             phongShader_.setVec3("uObjectColor", selected ? COL_SELECTED : ni.color);
             nodeSphere_.draw();
         }
+    }
+
+    // ---- Gizmos des plans de coupe ----
+    if (sp) {
+        drawSectionPlaneGizmos(camera, *sp);
     }
 
     // ---- Trièdre d'axes (coin bas-gauche) ----

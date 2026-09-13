@@ -246,6 +246,7 @@ static void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int actio
         case GLFW_KEY_2: ctx->camera.setTopView(); break;
         case GLFW_KEY_3: ctx->camera.setSideView(); break;
         case GLFW_KEY_4: ctx->camera.setIsometricView(); break;
+        case GLFW_KEY_5: ctx->camera.orthographic = !ctx->camera.orthographic; break;
         case GLFW_KEY_F: ctx->camera.fitToScene(ctx->boundsMin, ctx->boundsMax); break;
         case GLFW_KEY_ESCAPE:
             // ERGONOMIE : Échap désélectionne l'objet courant au lieu de
@@ -434,12 +435,13 @@ int main(int argc, char* argv[]) {
     int fpsCounter = 0;
     int currentFps = 60;
     auto lastFpsTime = std::chrono::high_resolution_clock::now();
+    float lastFrameTime = static_cast<float>(glfwGetTime());
 
     // Boucle principale
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        // Calcul FPS
+        // Calcul FPS et delta temps
         auto now = std::chrono::high_resolution_clock::now();
         fpsCounter++;
         std::chrono::duration<float> elapsed = now - lastFpsTime;
@@ -450,6 +452,10 @@ int main(int argc, char* argv[]) {
         }
 
         float currentTime = static_cast<float>(glfwGetTime());
+        float dt = currentTime - lastFrameTime;
+        lastFrameTime = currentTime;
+        if (dt > 0.1f) dt = 0.1f;
+        appCtx.camera.update(dt);
 
         // Sélection à la souris (nœud / barre) demandée par un clic net dans la vue 3D
         if (appCtx.pickRequested) {

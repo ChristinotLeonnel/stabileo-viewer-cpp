@@ -9,6 +9,7 @@
 #include "core/Grid.h"
 #include "scene/StructureModel.h"
 #include "scene/DiagramMesh.h"
+#include "scene/SectionPlane.h"
 #include <vector>
 #include <memory>
 
@@ -36,6 +37,9 @@ struct RenderState {
 
     int  selectedNodeId    = -1;
     int  selectedElementId = -1;
+
+    // Plans de coupe / Slicing (Autodesk Robot style)
+    scene::SectionPlanes sectionPlanes;
 };
 
 // ---- Mesh instancié avec sa matrice model et sa couleur ----
@@ -45,6 +49,9 @@ struct MeshInstance {
     glm::vec3 color{0.7f};
     float     alpha = 1.0f;
     int       id    = -1;   // ID du modèle source (élément), -1 si non applicable
+    glm::vec3 p1{0.0f};
+    glm::vec3 p2{0.0f};
+    bool      hasP2 = false;
 };
 
 class StructureRenderer {
@@ -66,6 +73,9 @@ public:
 
     /// Dessine la scène complète.
     void draw(const Camera& camera, const RenderState& state, float time);
+
+    glm::vec3 getBoundsMin() const { return boundsMin_; }
+    glm::vec3 getBoundsMax() const { return boundsMax_; }
 
     Grid grid;
 
@@ -98,6 +108,15 @@ private:
     // Réactions
     std::vector<MeshInstance> reactionMeshes_;
 
+    glm::vec3 boundsMin_{-5.0f};
+    glm::vec3 boundsMax_{5.0f};
+
+    mutable Mesh sectionQuadMesh_;
+    mutable Mesh sectionLinesMesh_;
+
     void drawPhongInstances(const std::vector<MeshInstance>& instances,
-                            const Camera& cam, int selectedId = -1) const;
+                            const Camera& cam, int selectedId = -1,
+                            const scene::SectionPlanes* sp = nullptr) const;
+
+    void drawSectionPlaneGizmos(const Camera& camera, const scene::SectionPlanes& sp) const;
 };

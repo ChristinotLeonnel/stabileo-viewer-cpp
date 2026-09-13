@@ -98,6 +98,7 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
 
     // Onglets dockés à gauche
     ImGui::DockBuilderDockWindow("Affichage & Calques###DisplayLayers", dockLeft);
+    ImGui::DockBuilderDockWindow("Plans de Coupe & Vues 2D###SectionPlanes", dockLeft);
     ImGui::DockBuilderDockWindow("Déformée 3D###DeformedResults", dockLeft);
     ImGui::DockBuilderDockWindow("Diagrammes d'Efforts###DiagramsResults", dockLeft);
     ImGui::DockBuilderDockWindow("Carte des Contraintes###HeatmapResults", dockLeft);
@@ -142,6 +143,7 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
 
     // Chaque onglet / fenêtre dockable individuelle (déplaçable indépendamment n'importe où)
     if (showDisplayLayers)   drawDisplayLayersWindow(state);
+    if (showSectionPlanes)   drawSectionPlanesWindow(state, boundsMin, boundsMax, camera);
     if (showDeformedResults) drawDeformedResultsWindow(state);
     if (showDiagramsResults) drawDiagramsResultsWindow(state);
     if (showHeatmapResults)  drawHeatmapResultsWindow(state);
@@ -155,6 +157,11 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
 
     if (showDemoImGui) {
         ImGui::ShowDemoWindow(&showDemoImGui);
+    }
+
+    // Cube de navigation 3D interactif (Autodesk Robot / AutoCAD)
+    if (showViewCube) {
+        viewCube.draw(camera, boundsMin, boundsMax);
     }
 
     // Détection des changements de paramètres nécessitant un rebuild de maillage
@@ -218,6 +225,8 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
         if (ImGui::BeginMenu("Affichage")) {
             if (ImGui::BeginMenu("Fenêtres & Onglets")) {
                 ImGui::MenuItem("Affichage & Calques", nullptr, &showDisplayLayers);
+                ImGui::MenuItem("Plans de Coupe & Vues 2D", nullptr, &showSectionPlanes);
+                ImGui::MenuItem("Cube de Navigation 3D (Robot)", nullptr, &showViewCube);
                 ImGui::MenuItem("Déformée 3D", nullptr, &showDeformedResults);
                 ImGui::MenuItem("Diagrammes d'Efforts", nullptr, &showDiagramsResults);
                 ImGui::MenuItem("Carte des Contraintes", nullptr, &showHeatmapResults);
@@ -235,13 +244,16 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 ImGui::EndMenu();
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Vue de Face", "Touche 1")) {
+            if (ImGui::MenuItem(camera.orthographic ? "Passer en Perspective 3D" : "Passer en Orthographique 2D", "Touche 5")) {
+                camera.orthographic = !camera.orthographic;
+            }
+            if (ImGui::MenuItem("Vue de Face (XZ)", "Touche 1")) {
                 camera.setFrontView();
             }
-            if (ImGui::MenuItem("Vue de Dessus", "Touche 2")) {
+            if (ImGui::MenuItem("Vue de Dessus (Plan)", "Touche 2")) {
                 camera.setTopView();
             }
-            if (ImGui::MenuItem("Vue de Côté", "Touche 3")) {
+            if (ImGui::MenuItem("Vue de Côté (YZ)", "Touche 3")) {
                 camera.setSideView();
             }
             if (ImGui::MenuItem("Vue Isométrique", "Touche 4")) {
@@ -251,6 +263,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 camera.fitToScene(boundsMin, boundsMax);
             }
             ImGui::Separator();
+            bool shiftDocking = ImGui::GetIO().ConfigDockingWithShift;
+            if (ImGui::MenuItem("Déplacement libre des fenêtres (Shift pour docker)", nullptr, shiftDocking)) {
+                ImGui::GetIO().ConfigDockingWithShift = !ImGui::GetIO().ConfigDockingWithShift;
+            }
             if (ImGui::MenuItem("Réinitialiser la disposition des fenêtres")) {
                 resetLayout();
             }
@@ -314,11 +330,19 @@ void UIManager::drawQuickToolbar(Camera& camera, const glm::vec3& boundsMin, con
         if (ImGui::Button("Iso (4)")) camera.setIsometricView();
         ImGui::SameLine();
         if (ImGui::Button("Cadrer (F)")) camera.fitToScene(boundsMin, boundsMax);
+        ImGui::SameLine();
+        if (ImGui::Button(camera.orthographic ? "Persp" : "Ortho")) {
+            camera.orthographic = !camera.orthographic;
+        }
 
         ImGui::SameLine();
         ImGui::TextDisabled("|");
         ImGui::SameLine();
 
+        if (ImGui::Button(state.sectionPlanes.active() ? "Coupe (Active)##tb" : "Coupe##tb")) {
+            showSectionPlanes = !showSectionPlanes;
+        }
+        ImGui::SameLine();
         if (ImGui::Checkbox("Profilés 3D", &state.showProfiles3D)) {
             needsRebuild = true;
         }
@@ -333,6 +357,140 @@ void UIManager::drawQuickToolbar(Camera& camera, const glm::vec3& boundsMin, con
         ImGui::SameLine();
         if (ImGui::Checkbox("Heatmap", &state.showHeatmap)) {
             if (state.showHeatmap) needsHeatmapRebuild = true;
+        }
+    }
+    ImGui::End();
+}
+
+void UIManager::drawSectionPlanesWindow(RenderState& state, const glm::vec3& boundsMin, const glm::vec3& boundsMax, Camera& camera) {
+    if (ImGui::Begin("Plans de Coupe & Vues 2D###SectionPlanes", &showSectionPlanes)) {
+        ImGui::TextColored(ImVec4(0.2f, 0.75f, 1.0f, 1.0f), "Coupes Dynamiques 3D (Style Robot Structural)");
+        ImGui::TextDisabled("Analysez l'intérieur de la structure par étages ou portiques");
+        ImGui::Separator();
+
+        // Statut global et réinitialisation rapide
+        bool isAnyActive = state.sectionPlanes.active();
+        if (isAnyActive) {
+            ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.4f, 1.0f), "● Coupe active");
+            ImGui::SameLine();
+            if (ImGui::Button("Désactiver toutes les coupes")) {
+                state.sectionPlanes.clipX = false;
+                state.sectionPlanes.clipY = false;
+                state.sectionPlanes.clipZ = false;
+            }
+        } else {
+            ImGui::TextDisabled("○ Aucune coupe active (Structure entière)");
+        }
+        ImGui::Spacing();
+
+        // 1. Coupe Horizontale Y (Étages / Niveaux)
+        if (ImGui::CollapsingHeader("Coupe Y — Hauteur / Étages", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Activer la coupe horizontale Y", &state.sectionPlanes.clipY);
+            if (state.sectionPlanes.clipY) {
+                ImGui::Indent();
+                float yMin = boundsMin.y - 0.5f;
+                float yMax = boundsMax.y + 0.5f;
+                ImGui::SliderFloat("Hauteur Y (m)", &state.sectionPlanes.posY, yMin, yMax, "%.2f m");
+
+                ImGui::Text("Orientation :");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("En-dessous (-Y)", state.sectionPlanes.dirY < 0)) {
+                    state.sectionPlanes.dirY = -1;
+                }
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Au-dessus (+Y)", state.sectionPlanes.dirY > 0)) {
+                    state.sectionPlanes.dirY = 1;
+                }
+
+                if (ImGui::Button("Vue Plan d'Étage 2D (Dessus)")) {
+                    camera.setTopView();
+                    camera.orthographic = true;
+                }
+                ImGui::Unindent();
+            }
+        }
+
+        // 2. Coupe Longitudinale X (Files / Portiques)
+        if (ImGui::CollapsingHeader("Coupe X — Longitudinale / Portiques", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Activer la coupe verticale X", &state.sectionPlanes.clipX);
+            if (state.sectionPlanes.clipX) {
+                ImGui::Indent();
+                float xMin = boundsMin.x - 0.5f;
+                float xMax = boundsMax.x + 0.5f;
+                ImGui::SliderFloat("Position X (m)", &state.sectionPlanes.posX, xMin, xMax, "%.2f m");
+
+                ImGui::Text("Orientation :");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Garder -X", state.sectionPlanes.dirX < 0)) {
+                    state.sectionPlanes.dirX = -1;
+                }
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Garder +X", state.sectionPlanes.dirX > 0)) {
+                    state.sectionPlanes.dirX = 1;
+                }
+
+                if (ImGui::Button("Vue Élévation Frontale 2D (Face)")) {
+                    camera.setFrontView();
+                    camera.orthographic = true;
+                }
+                ImGui::Unindent();
+            }
+        }
+
+        // 3. Coupe Transversale Z (Travées / Pignons)
+        if (ImGui::CollapsingHeader("Coupe Z — Transversale / Pignons", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Activer la coupe verticale Z", &state.sectionPlanes.clipZ);
+            if (state.sectionPlanes.clipZ) {
+                ImGui::Indent();
+                float zMin = boundsMin.z - 0.5f;
+                float zMax = boundsMax.z + 0.5f;
+                ImGui::SliderFloat("Position Z (m)", &state.sectionPlanes.posZ, zMin, zMax, "%.2f m");
+
+                ImGui::Text("Orientation :");
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Garder -Z", state.sectionPlanes.dirZ < 0)) {
+                    state.sectionPlanes.dirZ = -1;
+                }
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Garder +Z", state.sectionPlanes.dirZ > 0)) {
+                    state.sectionPlanes.dirZ = 1;
+                }
+
+                if (ImGui::Button("Vue Élévation Latérale 2D (Côté)")) {
+                    camera.setRightView();
+                    camera.orthographic = true;
+                }
+                ImGui::Unindent();
+            }
+        }
+
+        // 4. Mode Tranche (Slice)
+        if (ImGui::CollapsingHeader("Mode Tranche (Isoler un seul niveau/file)", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Checkbox("Activer le mode tranche (épaisseur finie)", &state.sectionPlanes.sliceMode);
+            if (state.sectionPlanes.sliceMode) {
+                ImGui::Indent();
+                ImGui::SliderFloat("Épaisseur de tranche (m)", &state.sectionPlanes.sliceThickness, 0.1f, 10.0f, "%.2f m");
+                ImGui::TextDisabled("Seuls les éléments dans l'épaisseur de tranche sont affichés");
+                ImGui::Unindent();
+            }
+        }
+
+        // 5. Projection & Vues Rapides
+        if (ImGui::CollapsingHeader("Caméra & Navigation 3D")) {
+            ImGui::Text("Mode de projection :");
+            if (ImGui::RadioButton("Perspective 3D", !camera.orthographic)) {
+                camera.orthographic = false;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Orthographique 2D", camera.orthographic)) {
+                camera.orthographic = true;
+            }
+
+            ImGui::Spacing();
+            ImGui::Checkbox("Afficher le Cube de navigation 3D (Robot)", &showViewCube);
+            if (ImGui::Button("Recadrer la vue sur la structure (F)")) {
+                camera.fitToScene(boundsMin, boundsMax);
+            }
         }
     }
     ImGui::End();

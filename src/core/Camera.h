@@ -41,12 +41,26 @@ public:
     /// (typiquement le point sous le curseur), pour un zoom "centré souris".
     void zoomToward(float delta, const glm::vec3& focusPoint);
 
-    // ---- Vues prédéfinies ----
-    void setFrontView();      // X-Z
-    void setTopView();        // X-Y (vue de dessus)
-    void setSideView();       // Y-Z
-    void setIsometricView();  // Isométrique classique
+    // ---- Vues prédéfinies complètes (Style Robot Structural Analysis) ----
+    void setFrontView();      // Face (Z+)
+    void setBackView();       // Arrière (Z-)
+    void setTopView();        // Dessus / Plan (Y+)
+    void setBottomView();     // Dessous (Y-)
+    void setRightView();      // Droite (X+)
+    void setLeftView();       // Gauche (X-)
+    void setSideView() { setRightView(); } // Alias compatibilité
+    void setIsometricView();  // Isométrique classique (SW)
+    void setIsoCorner(int cornerIndex); // 0..7 pour chaque coin du ViewCube
+    void rotateYaw(float deltaDeg); // Rotation en plan (+/-90°)
+    
+    // Animation fluide vers orientation cible
+    void setOrientationSmooth(float targetYaw, float targetPitch);
+    void update(float dt);
 
     /// Recadre la caméra pour que la boîte englobante soit visible.
     void fitToScene(const glm::vec3& sceneMin, const glm::vec3& sceneMax);
+
+    bool  isAnimating = false;
+    float animTargetYaw = 45.0f;
+    float animTargetPitch = 25.0f;
 };

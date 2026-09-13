@@ -7,6 +7,7 @@
 #include "scene/StructureModel.h"
 #include "scene/DxfImporter.h"
 #include "core/Camera.h"
+#include "ui/ViewCube.h"
 #include <imgui.h>
 #include <string>
 #include <vector>
@@ -34,6 +35,10 @@ public:
     std::string pendingDxfLoad;
     scene::DxfImportOptions dxfOptions;
 
+    // Cube de navigation 3D interactif (Robot Structural Analysis / AutoCAD)
+    ui::ViewCube viewCube;
+    bool showViewCube         = true;
+
     // Flags de rebuild maillage
     bool needsRebuild         = false;
     bool needsDeformedRebuild = false;
@@ -42,6 +47,7 @@ public:
 
     // Visibilité individuelle de chaque onglet / fenêtre dockable
     bool showDisplayLayers    = true;
+    bool showSectionPlanes    = true;
     bool showDeformedResults  = true;
     bool showDiagramsResults  = true;
     bool showHeatmapResults   = true;
@@ -62,6 +68,7 @@ private:
 
     // Chaque onglet est une fenêtre indépendante dockable
     void drawDisplayLayersWindow(RenderState& state);
+    void drawSectionPlanesWindow(RenderState& state, const glm::vec3& boundsMin, const glm::vec3& boundsMax, Camera& camera);
     void drawDeformedResultsWindow(RenderState& state);
     void drawDiagramsResultsWindow(RenderState& state);
     void drawHeatmapResultsWindow(RenderState& state);

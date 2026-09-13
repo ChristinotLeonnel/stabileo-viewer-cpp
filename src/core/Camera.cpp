@@ -70,19 +70,77 @@ void Camera::zoomToward(float delta, const glm::vec3& focusPoint) {
 }
 
 void Camera::setFrontView() {
-    yaw = 0.0f; pitch = 0.0f;
+    setOrientationSmooth(0.0f, 0.0f);
+}
+
+void Camera::setBackView() {
+    setOrientationSmooth(180.0f, 0.0f);
 }
 
 void Camera::setTopView() {
-    yaw = 0.0f; pitch = 89.0f;
+    setOrientationSmooth(0.0f, 89.0f);
 }
 
-void Camera::setSideView() {
-    yaw = 90.0f; pitch = 0.0f;
+void Camera::setBottomView() {
+    setOrientationSmooth(0.0f, -89.0f);
+}
+
+void Camera::setRightView() {
+    setOrientationSmooth(90.0f, 0.0f);
+}
+
+void Camera::setLeftView() {
+    setOrientationSmooth(-90.0f, 0.0f);
 }
 
 void Camera::setIsometricView() {
-    yaw = 45.0f; pitch = 30.0f;
+    setOrientationSmooth(45.0f, 30.0f);
+}
+
+void Camera::setIsoCorner(int cornerIndex) {
+    // 8 coins du ViewCube (Top 4, Bottom 4)
+    switch (cornerIndex) {
+        case 0: setOrientationSmooth(45.0f, 35.0f); break;   // Front-Right-Top
+        case 1: setOrientationSmooth(-45.0f, 35.0f); break;  // Front-Left-Top
+        case 2: setOrientationSmooth(135.0f, 35.0f); break;  // Back-Right-Top
+        case 3: setOrientationSmooth(-135.0f, 35.0f); break; // Back-Left-Top
+        case 4: setOrientationSmooth(45.0f, -35.0f); break;  // Front-Right-Bottom
+        case 5: setOrientationSmooth(-45.0f, -35.0f); break; // Front-Left-Bottom
+        case 6: setOrientationSmooth(135.0f, -35.0f); break; // Back-Right-Bottom
+        case 7: setOrientationSmooth(-135.0f, -35.0f); break;// Back-Left-Bottom
+        default: setIsometricView(); break;
+    }
+}
+
+void Camera::rotateYaw(float deltaDeg) {
+    setOrientationSmooth(yaw + deltaDeg, pitch);
+}
+
+void Camera::setOrientationSmooth(float targetY, float targetP) {
+    targetP = std::clamp(targetP, -89.0f, 89.0f);
+    // Normaliser l'angle yaw le plus court
+    while (targetY - yaw > 180.0f) targetY -= 360.0f;
+    while (targetY - yaw < -180.0f) targetY += 360.0f;
+
+    animTargetYaw = targetY;
+    animTargetPitch = targetP;
+    isAnimating = true;
+}
+
+void Camera::update(float dt) {
+    if (!isAnimating) return;
+
+    float speed = 12.0f; // Vitesse de convergence fluide
+    float factor = std::clamp(speed * dt, 0.0f, 1.0f);
+
+    yaw   += (animTargetYaw - yaw) * factor;
+    pitch += (animTargetPitch - pitch) * factor;
+
+    if (std::abs(animTargetYaw - yaw) < 0.05f && std::abs(animTargetPitch - pitch) < 0.05f) {
+        yaw = animTargetYaw;
+        pitch = animTargetPitch;
+        isAnimating = false;
+    }
 }
 
 void Camera::fitToScene(const glm::vec3& sceneMin, const glm::vec3& sceneMax) {
