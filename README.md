@@ -1,8 +1,8 @@
-# StabileoViewer (C++20 / OpenGL 3.3 Core)
+# StabileoViewer (C++20 / OpenGL 3.3 Core / C# Scripting)
 
-**StabileoViewer** est un moteur graphique 3D haute performance et un logiciel d'analyse par éléments finis (FEA) développé en **C++20**, **OpenGL 3.3 Core**, **Dear ImGui (Docking)** et **Eigen 3.4**.
+**StabileoViewer** est un moteur graphique 3D haute performance et un logiciel d'analyse par éléments finis (FEA) développé en **C++20**, **OpenGL 3.3 Core**, **Dear ImGui (Docking)**, **Eigen 3.4** et **.NET 6 CoreCLR (Scripting C#)**.
 
-Conçu pour le calcul et la visualisation interactive des structures de génie civil et mécanique (bâtiments, tours, ponts à haubans/suspendus, dômes, treillis spatiaux, portiques industriels).
+Conçu pour le calcul, le dimensionnement réglementaire et la visualisation interactive des structures de génie civil et mécanique (bâtiments, tours, ponts à haubans/suspendus, dômes, treillis spatiaux, portiques industriels).
 
 ---
 
@@ -13,61 +13,69 @@ Conçu pour le calcul et la visualisation interactive des structures de génie c
 - Prise en charge des charges réparties ($w$) et ponctuelles ($F, M$).
 - Calcul analytique exact des efforts internes aux stations ($N, V_y, V_z, M_y, M_z, T$) et des contraintes de von Mises $\sigma / f_y$.
 - Calcul des réactions d'appui et vérification de l'équilibre statique global $\sum \mathbf{R} + \sum \mathbf{F} = 0$.
-- Validation analytique intégrée (`--test`) avec une précision exacte ($3.34 \times 10^{-6} \%$ d'erreur relative sur flèche $5wL^4/(384EI)$).
+- Validation analytique intégrée (`--test`) avec une précision exacte ($3.34 \times 10^{-6} \%$ d'erreur relative sur la flèche $5wL^4/(384EI)$).
 
-### 2. Interface Utilisateur Moderne avec Dear ImGui Docking
-- **Système de Docking 100% Modulaire** : chaque onglet est une fenêtre déplaçable, scindable, empilable ou détachable librement.
-- **10 Fenêtres / Onglets Indépendants** :
-  - *Affichage & Calques* : Nœuds, barres filaires, profilés extrudés 3D, appuis, charges, grille, axes locaux.
-  - *Déformée 3D* : Amplification logarithmique ($1\times$ à $2000\times$) et animation oscillatoire dynamique.
-  - *Diagrammes d'Efforts* : Normal ($N$), tranchants ($V_y, V_z$), moments fléchissants ($M_y, M_z$), torsion ($T$).
-  - *Carte des Contraintes (Heatmap)* : Palettes perceptuelles Google Turbo et Viridis selon $\sigma / f_y$.
-  - *Inspecteur & Propriétés* : Propriétés détaillées du nœud ou de la barre sélectionnée, jauge de contrainte, catalogue des sections.
-  - *Modèles C++ Phares* : 15 structures complètes (Bâtiments 3D, Tour Diagrid, Ponts suspendus/haubanés, Dôme, Pylône HT, etc.).
-  - *Catalogue JSON Stabileo* : 59 structures issues de l'écosystème Stabileo.
-  - *Importateur DXF* : Importation de dessins AutoCAD avec fusion de nœuds.
-  - *Tables de Données* : Déplacements nodaux en mm, efforts extrêmes, réactions et équilibre global.
-- **Navigation 3D Fluide** : Viewport central transparent (`PassthruCentralNode`) permettant l'interaction caméra directe (orbite, zoom, panoramique).
+### 2. Moteur de Scripting C# & Extension UI (Architecture Hazel Engine)
+- **Hébergement .NET CoreCLR** via `hostfxr.dll` avec table d'appels natifs optimisée (`[UnmanagedCallersOnly]`).
+- **Compilation dynamique à chaud (Hot-Reload)** avec le compilateur Roslyn `csc.exe` de Visual Studio 2026.
+- **API C# complète (`StabileoAPI.cs`)** :
+  - `Stabileo.UI` : Fenêtres, boutons, sliders, barres de progression, séparateurs, arborescences.
+  - `Stabileo.Model` : Création et manipulation des nœuds, barres, appuis et chargements.
+  - `Stabileo.Solver` : Exécution du solveur EF et extraction des extrema ($f_{\max}, N_{\max}, M_{\max}$).
+- **Plugins d'ingénierie inclus** :
+  - **Eurocode 3 (NF EN 1993-1-1)** : Vérification de profilés acier (traction, compression, courbes européennes de flambement $\chi$, flexion et interaction).
+  - **Générateur Paramétrique de Treillis** : Topologies Warren, Pratt, Howe avec maillage et calcul automatique en direct.
 
-### 3. Importateur de Fichiers AutoCAD DXF
+### 3. Interface Visual Studio 2026 sans Superposition
+- **Viewport 3D plein écran direct** (`PassthruCentralNode`) avec navigation fluide (orbite, pan, zoom, clic de sélection d'objets).
+- **Boutons caméra d'accès rapide** intégrés directement dans la barre de menus principale (`Face`, `Plan`, `Côté`, `Iso`, `Cadrer`, `Persp/Ortho`).
+- **Cube de navigation 3D interactif (ViewCube)** inspiré d'Autodesk Robot Structural Analysis.
+- **Organisation ergonomique étanche** :
+  - *Gauche (22%)* : Explorateur de modèle, Calques d'affichage, Catalogues JSON & DXF.
+  - *Droite (26%)* : Inspecteur de propriétés, Plans de coupe 3D, Résultats EF & Plugins C#.
+  - *Bas (24%)* : Journal de calcul EF, Tables de données (Nœuds, Barres, Réactions), Console C# Scripting.
+  - *Centre* : 100% dégagé pour le rendu graphique 3D.
+
+### 4. Importateur AutoCAD DXF
 - Analyseur syntaxique DXF ASCII autonome (`LINE`, `3DLINE`, `LWPOLYLINE`, `POLYLINE`, `POINT`).
-- **Node Snapping / Welding** : Fusion géométrique automatique des nœuds voisins dans une tolérance $\varepsilon$ (ex: 5 mm).
-- **Mappage de Calques** : Attribution automatique des profilés réels 3D selon le calque (`HEA`, `IPE`, `TUBE`, `SHS`, etc.).
-- Détection automatique des appuis au sol et ajout de charges d'essai.
+- **Node Snapping / Welding** : Fusion géométrique automatique des nœuds voisins dans une tolérance réglable.
+- **Mappage automatique de calques** : Profilés 3D réels (HEA, IPE, UPN, tubes).
 
 ---
 
-## 🛠️ Prérequis & Dépendances
+## 🛠️ Bibliothèques Locales (`libs/`) & 100% Hors-Ligne
 
-- **Compilateur C++20** : MSVC (Visual Studio 2022 ou 2026), GCC 11+ ou Clang 13+.
-- **CMake** : Version 3.20 ou supérieure.
-- **Dépendances gérées automatiquement via CMake FetchContent** :
-  - GLFW 3.4 (Fenêtrage et contexte OpenGL)
-  - GLEW 2.2.0 (Extensions OpenGL)
-  - GLM 1.0.1 (Algèbre linéaire graphique)
-  - Dear ImGui (`docking` branch)
-  - nlohmann/json 3.11.3 (Parsing JSON)
-  - Eigen 3.4.0 (Solveur matriciel creux / dense)
+Toutes les dépendances tierces sont incluses localement dans le dossier `libs/` à la racine :
+- `libs/glfw/` (GLFW 3.4)
+- `libs/glm/` (GLM 1.0.1)
+- `libs/glew/` (GLEW 2.2.0)
+- `libs/imgui/` (Dear ImGui Docking)
+- `libs/json/` (nlohmann/json 3.11.3)
+- `libs/eigen/` (Eigen 3.4.0)
+
+> **Avantages** : Aucun téléchargement internet nécessaire. La configuration CMake prend moins d'une seconde (`0.3s`).
 
 ---
 
-## 📦 Compilation & Exécution
+## 📦 Compilation & Lancement Rapide
 
-### Avec CMake (Ligne de commande)
+### 1. En un clic (Fichiers Batch)
+- Double-cliquez sur `build_and_run.bat` pour compiler et lancer en Release.
+- Double-cliquez sur `generate_vs2026.bat` pour générer la solution Visual Studio 2026 (`StabileoViewer.sln`).
 
+### 2. En ligne de commande (PowerShell / CMD)
 ```powershell
-# Configuration
-cmake -B build
+# Configuration instantanée (0.3s)
+cmake -B build -G "Visual Studio 18 2026" -A x64
 
-# Compilation en configuration Release
+# Compilation Release multi-cœurs
 cmake --build build --config Release --parallel
 
-# Lancement de l'application
+# Lancement
 .\build\bin\Release\StabileoViewer.exe
 ```
 
-### Validation Analytique CLI (Mode Test)
-
+### 3. Validation Analytique CLI (Mode Test)
 ```powershell
 .\build\bin\Release\StabileoViewer.exe --test
 ```
@@ -77,11 +85,13 @@ cmake --build build --config Release --parallel
 ## ⌨️ Raccourcis Clavier & Contrôles
 
 - **Clic Gauche + Glisser** : Rotation orbitale de la caméra 3D
-- **Clic Droit + Glisser** : Déplacement panoramique (Pan)
-- **Molette Souris** : Zoom avant / arrière
-- **Touche 1** : Vue de Face
-- **Touche 2** : Vue de Dessus
-- **Touche 3** : Vue de Côté
+- **Clic Droit / Milieu + Glisser** : Panoramique (Pan)
+- **Molette Souris** : Zoom centré sur le curseur
+- **Clic Gauche net** : Sélection interactive de nœud ou barre
+- **Touche 1** : Vue de Face (XZ)
+- **Touche 2** : Vue de Dessus (Plan XY)
+- **Touche 3** : Vue de Côté (YZ)
 - **Touche 4** : Vue Isométrique
+- **Touche 5** : Bascule Perspective / Orthographique
 - **Touche F** : Cadrer l'ensemble de la structure
-- **Touche Échap** : Quitter l'application
+- **Touche Échap** : Désélectionner
