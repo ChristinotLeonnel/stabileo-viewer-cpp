@@ -129,13 +129,13 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
     }
 
     // --- Panneaux Hazel Engine : Hiérarchie de Scène & Propriétés ---
-    if (showSceneHierarchy) {
-        sceneHierarchyPanel.onImGuiRender(state);
+    if (showSceneHierarchy || showEntityProperties) {
+        sceneHierarchyPanel.onImGuiRender(state, &showSceneHierarchy, &showEntityProperties);
     }
 
     // --- Panneau Hazel Engine : Explorateur de Contenu (Assets) ---
     if (showContentBrowser) {
-        contentBrowserPanel.onImGuiRender();
+        contentBrowserPanel.onImGuiRender(&showContentBrowser);
         std::string cbLoad = contentBrowserPanel.getPendingLoadFile();
         if (!cbLoad.empty()) pendingFixtureLoad = cbLoad;
         std::string cbDxf = contentBrowserPanel.getPendingDxfFile();
@@ -252,6 +252,7 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
         if (ImGui::BeginMenu("Affichage")) {
             if (ImGui::BeginMenu("Fenêtres d'Outils")) {
                 ImGui::MenuItem("Hiérarchie de Scène (Hazel)", nullptr, &showSceneHierarchy);
+                ImGui::MenuItem("Propriétés & Composants (Hazel)", nullptr, &showEntityProperties);
                 ImGui::MenuItem("Explorateur de Contenu (Hazel)", nullptr, &showContentBrowser);
                 ImGui::MenuItem("Barre de Simulation (Hazel)", nullptr, &showSimulationToolbar);
                 ImGui::Separator();
@@ -379,6 +380,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Afficher tous les panneaux")) {
+                showSceneHierarchy = true;
+                showEntityProperties = true;
+                showContentBrowser = true;
+                showSimulationToolbar = true;
                 showViewport3D = true;
                 showStructureExplorer = true;
                 showDisplayLayers = true;
@@ -389,6 +394,28 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 showTableReactions = true;
                 showSolverLog = true;
                 showCSharpScripting = true;
+            }
+            if (ImGui::MenuItem("Fermer tous les panneaux")) {
+                showSceneHierarchy = false;
+                showEntityProperties = false;
+                showContentBrowser = false;
+                showSimulationToolbar = false;
+                showViewport3D = false;
+                showStructureExplorer = false;
+                showDisplayLayers = false;
+                showInspector = false;
+                showSectionPlanes = false;
+                showTableNodes = false;
+                showTableElements = false;
+                showTableReactions = false;
+                showSolverLog = false;
+                showCSharpScripting = false;
+                showDeformedResults = false;
+                showDiagramsResults = false;
+                showHeatmapResults = false;
+                showCppCatalog = false;
+                showJsonCatalog = false;
+                showDxfImporter = false;
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Scripts & Plugins C# (Hazel)", nullptr, &showCSharpScripting)) {}
@@ -461,12 +488,10 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
     float toolbarWidth = 660.0f;
-    float toolbarHeight = 44.0f;
     float posX = vp->WorkPos.x + (vp->WorkSize.x - toolbarWidth) * 0.5f;
     float posY = vp->WorkPos.y + 8.0f;
 
-    ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(toolbarWidth, toolbarHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_FirstUseEver);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
                              ImGuiWindowFlags_NoDocking |
@@ -555,6 +580,15 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
             camera.fitToScene(boundsMin, boundsMax);
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Recentrer et cadrer la caméra sur la structure");
+
+        ImGui::SameLine(0.0f, 8.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.35f, 0.15f, 0.15f, 0.70f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.20f, 0.20f, 0.90f));
+        if (ImGui::Button(" ✕ ", ImVec2(28.0f, 28.0f))) {
+            showSimulationToolbar = false;
+        }
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fermer la barre de simulation (Réactivable dans Affichage -> Fenêtres d'Outils)");
     }
     ImGui::End();
 

@@ -425,6 +425,7 @@ int main(int argc, char* argv[]) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigDockingAlwaysTabBar = true; // Toujours afficher la barre d'onglets pour déplacer/docker et fermer toute fenêtre
 
     // Typographie moderne haute définition (Hazel Engine)
     Hazel::UI::InitFonts(io);

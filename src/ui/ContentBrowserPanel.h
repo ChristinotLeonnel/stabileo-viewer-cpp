@@ -11,7 +11,7 @@ class ContentBrowserPanel {
 public:
     ContentBrowserPanel();
 
-    void onImGuiRender();
+    void onImGuiRender(bool* p_open = nullptr);
 
     // Signaux d'actions utilisateur
     std::string getPendingLoadFile() {

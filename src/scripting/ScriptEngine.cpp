@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <cmath>
 #include <algorithm>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
@@ -115,8 +116,20 @@ static std::vector<std::string> s_logHistory;
 static NativeEngineTable s_nativeTable;
 
 // ---- Callbacks ImGui C++ -> C# ----
+static std::unordered_map<std::string, bool>& getPluginWindowMap() {
+    static std::unordered_map<std::string, bool> s_pluginMap;
+    return s_pluginMap;
+}
+
 static bool ImGui_Begin(const char* name, void*, int flags) {
-    return ImGui::Begin(name ? name : "Fenêtre C#", nullptr, flags);
+    std::string title = name ? name : "Fenêtre C#";
+    auto& map = getPluginWindowMap();
+    if (map.find(title) == map.end()) {
+        map[title] = true;
+    }
+    bool& open = map[title];
+    if (!open) return false;
+    return ImGui::Begin(title.c_str(), &open, flags);
 }
 
 static void ImGui_End() {
@@ -747,9 +760,16 @@ void ScriptEngine::drawScriptingWindow(bool* p_open) {
     ImGui::Spacing();
 
     // Arborescence des plugins détectés
-    if (ImGui::CollapsingHeader("Plugins C# actifs", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::BulletText("Eurocode 3 - Vérification Acier (EN 1993-1-1)");
-        ImGui::BulletText("Générateur Paramétrique de Treillis (Warren / Pratt / Howe)");
+    if (ImGui::CollapsingHeader("Plugins C# actifs (Cocher pour afficher)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        auto& map = getPluginWindowMap();
+        bool ecOpen = (map.find("Eurocode 3 — Vérification Acier (C# Plugin)") == map.end() || map["Eurocode 3 — Vérification Acier (C# Plugin)"]);
+        if (ImGui::Checkbox("Eurocode 3 - Vérification Acier (EN 1993-1-1)", &ecOpen)) {
+            map["Eurocode 3 — Vérification Acier (C# Plugin)"] = ecOpen;
+        }
+        bool trOpen = (map.find("Générateur Paramétrique de Treillis (C#)") == map.end() || map["Générateur Paramétrique de Treillis (C#)"]);
+        if (ImGui::Checkbox("Générateur Paramétrique de Treillis (Warren / Pratt / Howe)", &trOpen)) {
+            map["Générateur Paramétrique de Treillis (C#)"] = trOpen;
+        }
     }
 
     // Paramètres des chemins d'accès

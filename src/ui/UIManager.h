@@ -58,8 +58,9 @@ public:
     // Panneaux inspirés de Hazel Engine (The Cherno)
     SceneHierarchyPanel sceneHierarchyPanel;
     ContentBrowserPanel contentBrowserPanel;
-    bool showSceneHierarchy   = true;
-    bool showContentBrowser   = true;
+    bool showSceneHierarchy    = true;
+    bool showEntityProperties  = true;
+    bool showContentBrowser    = true;
     bool showSimulationToolbar = true;
 
     // Mode Plein Écran (F11)

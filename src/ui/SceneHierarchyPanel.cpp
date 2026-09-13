@@ -10,13 +10,21 @@
 #include <cstdio>
 #include <algorithm>
 
-void SceneHierarchyPanel::onImGuiRender(RenderState& state) {
-    drawHierarchy(state);
-    drawProperties(state);
+void SceneHierarchyPanel::onImGuiRender(RenderState& state, bool* p_openHierarchy, bool* p_openProperties) {
+    if (!p_openHierarchy || *p_openHierarchy) {
+        drawHierarchy(state, p_openHierarchy);
+    }
+    if (!p_openProperties || *p_openProperties) {
+        drawProperties(state, p_openProperties);
+    }
 }
 
-void SceneHierarchyPanel::drawHierarchy(RenderState& state) {
-    ImGui::Begin("Hiérarchie de Scène###SceneHierarchy");
+void SceneHierarchyPanel::drawHierarchy(RenderState& state, bool* p_open) {
+    if (p_open && !*p_open) return;
+    if (!ImGui::Begin("Hiérarchie de Scène###SceneHierarchy", p_open)) {
+        ImGui::End();
+        return;
+    }
 
     if (!context_) {
         ImGui::TextDisabled("Aucun modèle de structure actif.");
@@ -171,8 +179,12 @@ void SceneHierarchyPanel::drawHierarchy(RenderState& state) {
     ImGui::End();
 }
 
-void SceneHierarchyPanel::drawProperties(RenderState& state) {
-    ImGui::Begin("Propriétés###EntityProperties");
+void SceneHierarchyPanel::drawProperties(RenderState& state, bool* p_open) {
+    if (p_open && !*p_open) return;
+    if (!ImGui::Begin("Propriétés###EntityProperties", p_open)) {
+        ImGui::End();
+        return;
+    }
 
     if (!context_) {
         ImGui::TextDisabled("Aucun composant à inspecter.");

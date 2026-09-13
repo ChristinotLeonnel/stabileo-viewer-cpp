@@ -25,7 +25,7 @@ public:
         selectedId_ = -1;
     }
 
-    void onImGuiRender(RenderState& state);
+    void onImGuiRender(RenderState& state, bool* p_openHierarchy = nullptr, bool* p_openProperties = nullptr);
 
     SelectionType getSelectedType() const { return selectedType_; }
     int getSelectedId() const { return selectedId_; }
@@ -46,8 +46,8 @@ public:
     }
 
 private:
-    void drawHierarchy(RenderState& state);
-    void drawProperties(RenderState& state);
+    void drawHierarchy(RenderState& state, bool* p_open = nullptr);
+    void drawProperties(RenderState& state, bool* p_open = nullptr);
 
     void drawNodeComponents(model::Node& node, RenderState& state);
     void drawElementComponents(model::Element& elem, RenderState& state);

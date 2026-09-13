@@ -24,8 +24,12 @@ ContentBrowserPanel::ContentBrowserPanel() {
     currentDirectory_ = baseDirectory_;
 }
 
-void ContentBrowserPanel::onImGuiRender() {
-    ImGui::Begin("Explorateur de Contenu (Assets)###ContentBrowser");
+void ContentBrowserPanel::onImGuiRender(bool* p_open) {
+    if (p_open && !*p_open) return;
+    if (!ImGui::Begin("Explorateur de Contenu (Assets)###ContentBrowser", p_open)) {
+        ImGui::End();
+        return;
+    }
 
     // Bouton Retour de style Hazel
     bool canGoBack = (currentDirectory_ != baseDirectory_);
