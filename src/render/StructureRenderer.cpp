@@ -69,6 +69,7 @@ void StructureRenderer::rebuild(const model::Structure& structure) {
         mi.mesh = scene::extrudeProfile(*sec, axis, up, fwd);
         mi.model = glm::mat4(1.0f);
         mi.color = COL_ELEMENT;
+        mi.id    = elem.id;
         elementMeshes_.push_back(std::move(mi));
     }
 
@@ -290,12 +291,13 @@ void StructureRenderer::rebuildHeatmap(const model::Structure& structure) {
 
 // ---- Helper : dessiner des instances Phong ----
 void StructureRenderer::drawPhongInstances(const std::vector<MeshInstance>& instances,
-                                            const Camera& cam) const {
+                                            const Camera& /*cam*/, int selectedId) const {
     for (auto& mi : instances) {
         phongShader_.setMat4("uModel", mi.model);
         glm::mat3 nm = glm::inverseTranspose(glm::mat3(mi.model));
         phongShader_.setMat3("uNormalMatrix", nm);
-        phongShader_.setVec3("uObjectColor", mi.color);
+        bool selected = (selectedId >= 0 && mi.id == selectedId);
+        phongShader_.setVec3("uObjectColor", selected ? COL_SELECTED : mi.color);
         phongShader_.setFloat("uAlpha", mi.alpha);
         mi.mesh.draw();
     }
@@ -346,7 +348,7 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
             phongShader_.setMat4("uProjection", proj);
             phongShader_.setVec3("uLightDir", lightDir);
             phongShader_.setVec3("uViewPos", camPos);
-            drawPhongInstances(elementMeshes_, camera);
+            drawPhongInstances(elementMeshes_, camera, state.selectedElementId);
         }
     }
 
@@ -430,13 +432,18 @@ void StructureRenderer::draw(const Camera& camera, const RenderState& state, flo
 
         float nodeRadius = 0.06f;
         for (auto& ni : nodeInfos_) {
+            bool selected = (ni.id == state.selectedNodeId);
+            // Le nœud sélectionné est agrandi pour rester bien visible :
+            // un simple changement de couleur est difficile à repérer sur
+            // une sphère aussi petite.
+            float radius = selected ? nodeRadius * 1.8f : nodeRadius;
+
             glm::mat4 m = glm::translate(glm::mat4(1.0f), ni.pos);
-            m = glm::scale(m, glm::vec3(nodeRadius));
+            m = glm::scale(m, glm::vec3(radius));
             phongShader_.setMat4("uModel", m);
             glm::mat3 nm = glm::inverseTranspose(glm::mat3(m));
             phongShader_.setMat3("uNormalMatrix", nm);
 
-            bool selected = (ni.id == state.selectedNodeId);
             phongShader_.setVec3("uObjectColor", selected ? COL_SELECTED : ni.color);
             nodeSphere_.draw();
         }

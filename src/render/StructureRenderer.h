@@ -44,6 +44,7 @@ struct MeshInstance {
     glm::mat4 model{1.0f};
     glm::vec3 color{0.7f};
     float     alpha = 1.0f;
+    int       id    = -1;   // ID du modèle source (élément), -1 si non applicable
 };
 
 class StructureRenderer {
@@ -98,5 +99,5 @@ private:
     std::vector<MeshInstance> reactionMeshes_;
 
     void drawPhongInstances(const std::vector<MeshInstance>& instances,
-                            const Camera& cam) const;
+                            const Camera& cam, int selectedId = -1) const;
 };

@@ -22,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <limits>
 
 struct AppContext {
     Camera camera;
@@ -30,23 +31,162 @@ struct AppContext {
     bool mouseMiddleDown = false;
     double lastMouseX    = 0.0;
     double lastMouseY    = 0.0;
+    // Position au moment du clic gauche, pour distinguer un clic (sélection)
+    // d'un glisser (rotation caméra).
+    double mouseDownX    = 0.0;
+    double mouseDownY    = 0.0;
+    bool pickRequested   = false;
     glm::vec3 boundsMin{0.0f};
     glm::vec3 boundsMax{0.0f};
+    RenderState* renderState = nullptr; // référence non-possédée, assignée dans main()
 };
 
-static void mouseButtonCallback(GLFWwindow* window, int button, int action, int /*mods*/) {
-    if (ImGui::GetIO().WantCaptureMouse) return;
+/// Convertit une position écran (pixels) en un rayon 3D (origine + direction)
+/// dans le repère du monde, à partir de la caméra courante.
+static bool screenPointToRay(double mx, double my, int winW, int winH, const Camera& camera,
+                              glm::vec3& outOrigin, glm::vec3& outDir) {
+    if (winW <= 0 || winH <= 0) return false;
 
+    float ndcX =  static_cast<float>(2.0 * mx / winW - 1.0);
+    float ndcY = -static_cast<float>(2.0 * my / winH - 1.0); // écran (Y bas) -> NDC (Y haut)
+
+    glm::mat4 invVP = glm::inverse(camera.getProjectionMatrix() * camera.getViewMatrix());
+
+    glm::vec4 nearPt = invVP * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+    glm::vec4 farPt  = invVP * glm::vec4(ndcX, ndcY,  1.0f, 1.0f);
+    nearPt /= nearPt.w;
+    farPt  /= farPt.w;
+
+    outOrigin = glm::vec3(nearPt);
+    outDir    = glm::normalize(glm::vec3(farPt - nearPt));
+    return true;
+}
+
+/// Distance la plus courte entre un rayon et un point du monde.
+static float rayPointDistance(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                               const glm::vec3& point, float& outT) {
+    outT = glm::dot(point - rayOrigin, rayDir);
+    glm::vec3 closest = rayOrigin + rayDir * outT;
+    return glm::length(closest - point);
+}
+
+/// Distance la plus courte entre un rayon et un segment [a, b] (barre structurelle).
+static float raySegmentDistance(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                                 const glm::vec3& a, const glm::vec3& b, float& outT) {
+    glm::vec3 u = rayDir;
+    glm::vec3 v = b - a;
+    glm::vec3 w0 = rayOrigin - a;
+    float aC = glm::dot(u, u);
+    float bC = glm::dot(u, v);
+    float cC = glm::dot(v, v);
+    float dC = glm::dot(u, w0);
+    float eC = glm::dot(v, w0);
+    float denom = aC * cC - bC * bC;
+
+    float tc; // paramètre le long du segment [0,1]
+    if (std::abs(denom) < 1e-6f) {
+        tc = (cC > 1e-9f) ? std::clamp(eC / cC, 0.0f, 1.0f) : 0.0f;
+    } else {
+        tc = std::clamp((aC * eC - bC * dC) / denom, 0.0f, 1.0f);
+    }
+    glm::vec3 closestOnSeg = a + v * tc;
+    outT = glm::dot(closestOnSeg - rayOrigin, u);
+    glm::vec3 closestOnRay = rayOrigin + u * std::max(outT, 0.0f);
+    return glm::length(closestOnRay - closestOnSeg);
+}
+
+/// Sélectionne le nœud ou la barre le plus proche du rayon souris (picking 3D).
+static void performPicking(AppContext& ctx, GLFWwindow* window,
+                            const model::Structure& structure, RenderState& renderState) {
+    int winW, winH;
+    glfwGetWindowSize(window, &winW, &winH);
+
+    glm::vec3 rayOrigin, rayDir;
+    if (!screenPointToRay(ctx.lastMouseX, ctx.lastMouseY, winW, winH, ctx.camera, rayOrigin, rayDir)) {
+        return;
+    }
+
+    const float nodePickRadius    = 0.20f; // tolérance de clic sur un nœud [m monde]
+    const float elementPickRadius = 0.14f; // tolérance de clic sur une barre [m monde]
+
+    int   bestNodeId = -1;
+    float bestNodeT  = std::numeric_limits<float>::max();
+    for (auto& n : structure.nodes) {
+        float t;
+        float d = rayPointDistance(rayOrigin, rayDir, n.position, t);
+        if (d < nodePickRadius && t > 0.0f && t < bestNodeT) {
+            bestNodeT = t;
+            bestNodeId = n.id;
+        }
+    }
+
+    int   bestElemId = -1;
+    float bestElemT  = std::numeric_limits<float>::max();
+    for (auto& e : structure.elements) {
+        const auto* nI = structure.findNode(e.nodeI);
+        const auto* nJ = structure.findNode(e.nodeJ);
+        if (!nI || !nJ) continue;
+        float t;
+        float d = raySegmentDistance(rayOrigin, rayDir, nI->position, nJ->position, t);
+        if (d < elementPickRadius && t > 0.0f && t < bestElemT) {
+            bestElemT = t;
+            bestElemId = e.id;
+        }
+    }
+
+    // Priorité aux nœuds quand ils sont à une profondeur comparable (plus faciles à viser).
+    if (bestNodeId >= 0 && (bestElemId < 0 || bestNodeT <= bestElemT + 0.05f)) {
+        renderState.selectedNodeId    = bestNodeId;
+        renderState.selectedElementId = -1;
+    } else if (bestElemId >= 0) {
+        renderState.selectedElementId = bestElemId;
+        renderState.selectedNodeId    = -1;
+    } else {
+        renderState.selectedNodeId    = -1;
+        renderState.selectedElementId = -1;
+    }
+}
+
+static void mouseButtonCallback(GLFWwindow* window, int button, int action, int /*mods*/) {
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
 
-    if (button == GLFW_MOUSE_BUTTON_LEFT) {
-        ctx->mouseLeftDown = (action == GLFW_PRESS);
-    } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-        ctx->mouseRightDown = (action == GLFW_PRESS);
-    } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
-        ctx->mouseMiddleDown = (action == GLFW_PRESS);
+    const bool uiWantsMouse = ImGui::GetIO().WantCaptureMouse;
+
+    if (action == GLFW_RELEASE) {
+        // BUGFIX: on relâche TOUJOURS l'état, même si le curseur est repassé
+        // au-dessus d'un panneau ImGui entre le clic et le relâchement.
+        // Avant ce correctif, relâcher le bouton sur l'interface laissait
+        // mouseLeftDown/mouseRightDown/mouseMiddleDown bloqué à "true", et la
+        // caméra continuait de tourner ou de se déplacer toute seule au
+        // prochain mouvement de souris, même loin de l'UI.
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (ctx->mouseLeftDown && !uiWantsMouse) {
+                double mx, my;
+                glfwGetCursorPos(window, &mx, &my);
+                double moved = std::hypot(mx - ctx->mouseDownX, my - ctx->mouseDownY);
+                if (moved < 4.0) {
+                    ctx->pickRequested = true; // clic net (pas un glisser) -> sélection
+                }
+            }
+            ctx->mouseLeftDown = false;
+        } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            ctx->mouseRightDown = false;
+        } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+            ctx->mouseMiddleDown = false;
+        }
+    } else if (action == GLFW_PRESS && !uiWantsMouse) {
+        // On n'initie une action caméra que si le clic ne cible pas l'interface.
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            ctx->mouseLeftDown = true;
+            glfwGetCursorPos(window, &ctx->mouseDownX, &ctx->mouseDownY);
+        } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            ctx->mouseRightDown = true;
+        } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+            ctx->mouseMiddleDown = true;
+        }
     }
+
     glfwGetCursorPos(window, &ctx->lastMouseX, &ctx->lastMouseY);
 }
 
@@ -72,9 +212,26 @@ static void scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffse
     if (ImGui::GetIO().WantCaptureMouse) return;
 
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
-    if (ctx) {
-        ctx->camera.zoom(static_cast<float>(yoffset));
+    if (!ctx) return;
+
+    // Zoom centré sur le curseur : on vise le point du monde situé sous la
+    // souris (projeté sur le plan qui passe par le pivot actuel) et on
+    // rapproche le pivot vers ce point en zoomant, au lieu de zoomer
+    // toujours vers le centre fixe de la scène.
+    int winW, winH;
+    glfwGetWindowSize(window, &winW, &winH);
+    glm::vec3 rayOrigin, rayDir;
+    if (screenPointToRay(ctx->lastMouseX, ctx->lastMouseY, winW, winH, ctx->camera, rayOrigin, rayDir)) {
+        glm::vec3 viewDir = glm::normalize(ctx->camera.target - ctx->camera.getPosition());
+        float denom = glm::dot(viewDir, rayDir);
+        if (std::abs(denom) > 1e-5f) {
+            float t = glm::dot(ctx->camera.target - rayOrigin, viewDir) / denom;
+            glm::vec3 focus = rayOrigin + rayDir * t;
+            ctx->camera.zoomToward(static_cast<float>(yoffset), focus);
+            return;
+        }
     }
+    ctx->camera.zoom(static_cast<float>(yoffset));
 }
 
 static void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
@@ -90,7 +247,18 @@ static void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int actio
         case GLFW_KEY_3: ctx->camera.setSideView(); break;
         case GLFW_KEY_4: ctx->camera.setIsometricView(); break;
         case GLFW_KEY_F: ctx->camera.fitToScene(ctx->boundsMin, ctx->boundsMax); break;
-        case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, GLFW_TRUE); break;
+        case GLFW_KEY_ESCAPE:
+            // ERGONOMIE : Échap désélectionne l'objet courant au lieu de
+            // fermer immédiatement l'application. Fermer tout le programme
+            // sur une simple touche Échap (souvent pressée par réflexe pour
+            // "annuler" une action) faisait perdre le travail en cours sans
+            // confirmation.
+            if (ctx->renderState &&
+                (ctx->renderState->selectedNodeId >= 0 || ctx->renderState->selectedElementId >= 0)) {
+                ctx->renderState->selectedNodeId    = -1;
+                ctx->renderState->selectedElementId = -1;
+            }
+            break;
         default: break;
     }
 }
@@ -205,6 +373,7 @@ int main(int argc, char* argv[]) {
     model::Structure currentStructure = scene::createDemoPortalFrame();
     solver::solveLinearStatic(currentStructure);
     RenderState renderState;
+    appCtx.renderState = &renderState;
 
     renderer.rebuild(currentStructure);
     currentStructure.computeBounds(appCtx.boundsMin, appCtx.boundsMax);
@@ -232,6 +401,12 @@ int main(int argc, char* argv[]) {
         }
         currentStructure.computeBounds(appCtx.boundsMin, appCtx.boundsMax);
         appCtx.camera.fitToScene(appCtx.boundsMin, appCtx.boundsMax);
+
+        // BUGFIX: une sélection de nœud/barre de l'ancien modèle pouvait
+        // rester active et pointer, par coïncidence d'ID, vers un élément
+        // sans rapport dans le nouveau modèle chargé.
+        renderState.selectedNodeId    = -1;
+        renderState.selectedElementId = -1;
     };
 
     auto loadDemo = [&](int demoIdx) {
@@ -275,6 +450,12 @@ int main(int argc, char* argv[]) {
         }
 
         float currentTime = static_cast<float>(glfwGetTime());
+
+        // Sélection à la souris (nœud / barre) demandée par un clic net dans la vue 3D
+        if (appCtx.pickRequested) {
+            appCtx.pickRequested = false;
+            performPicking(appCtx, window, currentStructure, renderState);
+        }
 
         // Traitement du chargement de démo demandé par l'UI (modèles natifs)
         if (uiManager.pendingDemoLoad >= 0) {

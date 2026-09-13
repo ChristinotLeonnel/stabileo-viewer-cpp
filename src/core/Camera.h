@@ -37,6 +37,10 @@ public:
     void pan   (float dx, float dy);
     void zoom  (float delta);
 
+    /// Zoom qui rapproche/éloigne le pivot (target) vers un point du monde
+    /// (typiquement le point sous le curseur), pour un zoom "centré souris".
+    void zoomToward(float delta, const glm::vec3& focusPoint);
+
     // ---- Vues prédéfinies ----
     void setFrontView();      // X-Z
     void setTopView();        // X-Y (vue de dessus)

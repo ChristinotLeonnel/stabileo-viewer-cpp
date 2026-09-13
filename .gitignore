@@ -19,7 +19,7 @@ cmake_install.cmake
 .idea/
 .vscode/
 
-# OS & ImGui
+# OS & IDE state
 Thumbs.db
 desktop.ini
 .DS_Store

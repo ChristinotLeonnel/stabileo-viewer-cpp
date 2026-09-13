@@ -452,7 +452,7 @@ void UIManager::drawHeatmapResultsWindow(RenderState& state) {
     ImGui::End();
 }
 
-void UIManager::drawInspectorWindow(const RenderState& state, const model::Structure& structure) {
+void UIManager::drawInspectorWindow(RenderState& state, const model::Structure& structure) {
     if (ImGui::Begin("Inspecteur###Inspector", &showInspector)) {
         ImGui::TextColored(ImVec4(0.3f, 0.85f, 0.95f, 1.0f), "Propriétés Globales");
         ImGui::Separator();
@@ -471,6 +471,13 @@ void UIManager::drawInspectorWindow(const RenderState& state, const model::Struc
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(0.95f, 0.80f, 0.20f, 1.0f), "Détails de Sélection");
         ImGui::Separator();
+
+        if (state.selectedNodeId >= 0 || state.selectedElementId >= 0) {
+            if (ImGui::SmallButton("Désélectionner")) {
+                state.selectedNodeId    = -1;
+                state.selectedElementId = -1;
+            }
+        }
 
         if (state.selectedNodeId >= 0) {
             const auto* node = structure.findNode(state.selectedNodeId);

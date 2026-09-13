@@ -37,9 +37,18 @@ void Camera::rotate(float dx, float dy) {
 }
 
 void Camera::pan(float dx, float dy) {
-    float yawR = glm::radians(yaw);
+    float yawR   = glm::radians(yaw);
+    float pitchR = glm::radians(pitch);
     glm::vec3 right(std::cos(yawR), 0.0f, -std::sin(yawR));
-    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    // BUGFIX: le vecteur "haut" réel de la caméra dépend aussi du pitch,
+    // pas seulement de l'axe Y du monde. Avec l'ancien code, dès que la
+    // caméra était inclinée (cas par défaut : pitch = 25°), le panoramique
+    // vertical dérivait en diagonale au lieu de suivre le curseur.
+    glm::vec3 up(
+        -std::sin(yawR) * std::sin(pitchR),
+         std::cos(pitchR),
+        -std::cos(yawR) * std::sin(pitchR)
+    );
     target -= right * dx * panSens * distance;
     target += up    * dy * panSens * distance;
 }
@@ -48,6 +57,16 @@ void Camera::zoom(float delta) {
     distance *= (delta > 0) ? (1.0f / zoomSens) : zoomSens;
     distance = std::clamp(distance, 0.1f, 1000.0f);
     orthoScale = distance * 0.5f;
+}
+
+void Camera::zoomToward(float delta, const glm::vec3& focusPoint) {
+    float oldDistance = distance;
+    zoom(delta);
+    // Déplace le pivot vers le point visé, proportionnellement au
+    // rapprochement effectif, pour donner la sensation d'un zoom
+    // centré sur le curseur plutôt que sur le pivot fixe.
+    float t = 1.0f - (distance / oldDistance);
+    target += (focusPoint - target) * t;
 }
 
 void Camera::setFrontView() {

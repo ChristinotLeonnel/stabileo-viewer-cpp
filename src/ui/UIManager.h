@@ -65,7 +65,7 @@ private:
     void drawDeformedResultsWindow(RenderState& state);
     void drawDiagramsResultsWindow(RenderState& state);
     void drawHeatmapResultsWindow(RenderState& state);
-    void drawInspectorWindow(const RenderState& state, const model::Structure& structure);
+    void drawInspectorWindow(RenderState& state, const model::Structure& structure);
     void drawCppCatalogWindow();
     void drawJsonCatalogWindow();
     void drawDxfImporterWindow();
