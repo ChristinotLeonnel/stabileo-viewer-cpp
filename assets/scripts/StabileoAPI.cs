@@ -63,6 +63,7 @@ namespace Stabileo
 
         public static void Text(string text) => Internal.Native.Text(text);
         public static void TextColored(string text, float r, float g, float b, float a = 1.0f) => Internal.Native.TextColored(r, g, b, a, text);
+        public static void TextDisabled(string text) => Internal.Native.TextColored(0.55f, 0.55f, 0.55f, 1.0f, text);
 
         public static bool Button(string label, float width = 0.0f, float height = 0.0f) => Internal.Native.Button(label, width, height);
         public static bool Checkbox(string label, ref bool val) => Internal.Native.Checkbox(label, ref val);
@@ -97,12 +98,108 @@ namespace Stabileo
         public static bool TreeNode(string label) => Internal.Native.TreeNode(label);
         public static void TreePop() => Internal.Native.TreePop();
 
+        public static bool BeginChild(string strId, float w = 0.0f, float h = 0.0f, bool border = false, int flags = 0)
+            => Internal.Native.BeginChild(strId, w, h, border, flags);
+        public static void EndChild() => Internal.Native.EndChild();
+
+        public static bool BeginTabBar(string strId, int flags = 0) => Internal.Native.BeginTabBar(strId, flags);
+        public static void EndTabBar() => Internal.Native.EndTabBar();
+
+        public static bool BeginTabItem(string label) => Internal.Native.BeginTabItem(label, IntPtr.Zero, 0);
+        public static void EndTabItem() => Internal.Native.EndTabItem();
+
+        public static bool Selectable(string label, bool selected = false, int flags = 0, float w = 0.0f, float h = 0.0f)
+            => Internal.Native.Selectable(label, selected, flags, w, h);
+
+        public static bool InputText(string label, ref string text, int maxLen = 256)
+        {
+            byte[] bytes = new byte[maxLen];
+            byte[] src = System.Text.Encoding.UTF8.GetBytes(text ?? "");
+            int copyLen = Math.Min(src.Length, maxLen - 1);
+            Array.Copy(src, bytes, copyLen);
+            bool modified = Internal.Native.InputText(label, bytes, maxLen, 0);
+            if (modified)
+            {
+                int nullIdx = Array.IndexOf(bytes, (byte)0);
+                if (nullIdx < 0) nullIdx = maxLen;
+                text = System.Text.Encoding.UTF8.GetString(bytes, 0, nullIdx);
+            }
+            return modified;
+        }
+
+        public static void PushStyleColor(int colIdx, float r, float g, float b, float a = 1.0f)
+            => Internal.Native.PushStyleColor(colIdx, r, g, b, a);
+        public static void PopStyleColor(int count = 1) => Internal.Native.PopStyleColor(count);
+
+        public static float ContentRegionAvailX => Internal.Native.GetContentRegionAvailX();
+        public static float ContentRegionAvailY => Internal.Native.GetContentRegionAvailY();
+
         public static void HelpMarker(string desc)
         {
             TextColored("(?)", 0.5f, 0.7f, 1.0f, 1.0f);
             SameLine();
             Text(desc);
         }
+    }
+
+    public static class ImGuiCol
+    {
+        public const int Text = 0;
+        public const int TextDisabled = 1;
+        public const int WindowBg = 2;
+        public const int ChildBg = 3;
+        public const int PopupBg = 4;
+        public const int Border = 5;
+        public const int BorderShadow = 6;
+        public const int FrameBg = 7;
+        public const int FrameBgHovered = 8;
+        public const int FrameBgActive = 9;
+        public const int TitleBg = 10;
+        public const int TitleBgActive = 11;
+        public const int TitleBgCollapsed = 12;
+        public const int MenuBarBg = 13;
+        public const int ScrollbarBg = 14;
+        public const int ScrollbarGrab = 15;
+        public const int ScrollbarGrabHovered = 16;
+        public const int ScrollbarGrabActive = 17;
+        public const int CheckMark = 18;
+        public const int SliderGrab = 19;
+        public const int SliderGrabActive = 20;
+        public const int Button = 21;
+        public const int ButtonHovered = 22;
+        public const int ButtonActive = 23;
+        public const int Header = 24;
+        public const int HeaderHovered = 25;
+        public const int HeaderActive = 26;
+        public const int Tab = 33;
+        public const int TabHovered = 34;
+        public const int TabActive = 35;
+        public const int TabUnfocused = 36;
+        public const int TabUnfocusedActive = 37;
+    }
+
+    public static class VSColors
+    {
+        // Palette thème sombre Visual Studio 2026
+        public static readonly (float r, float g, float b, float a) PurpleRibbon = (0.36f, 0.18f, 0.57f, 1.0f); // #5C2D91
+        public static readonly (float r, float g, float b, float a) DarkBg = (0.12f, 0.12f, 0.12f, 1.0f);       // #1E1E1E
+        public static readonly (float r, float g, float b, float a) EditorBg = (0.12f, 0.12f, 0.12f, 1.0f);     // #1E1E1E
+        public static readonly (float r, float g, float b, float a) MenuBg = (0.17f, 0.17f, 0.17f, 1.0f);       // #2B2B2B
+        public static readonly (float r, float g, float b, float a) ToolbarBg = (0.15f, 0.15f, 0.15f, 1.0f);    // #252526
+        public static readonly (float r, float g, float b, float a) TabActive = (0.12f, 0.12f, 0.12f, 1.0f);    // #1E1E1E
+        public static readonly (float r, float g, float b, float a) TabInactive = (0.18f, 0.18f, 0.18f, 1.0f);  // #2D2D2D
+        public static readonly (float r, float g, float b, float a) StatusBlue = (0.0f, 0.48f, 0.80f, 1.0f);    // #007ACC
+        public static readonly (float r, float g, float b, float a) PlayGreen = (0.22f, 0.65f, 0.32f, 1.0f);     // #38A652
+
+        // Coloration syntaxique C++ Visual Studio 2026
+        public static readonly (float r, float g, float b, float a) CommentGreen = (0.34f, 0.65f, 0.29f, 1.0f); // #57A64A
+        public static readonly (float r, float g, float b, float a) Preprocessor = (0.74f, 0.39f, 0.77f, 1.0f); // #BD63C5
+        public static readonly (float r, float g, float b, float a) StringOrange = (0.84f, 0.62f, 0.52f, 1.0f); // #D69D85
+        public static readonly (float r, float g, float b, float a) KeywordBlue = (0.34f, 0.61f, 0.84f, 1.0f);  // #569CD6
+        public static readonly (float r, float g, float b, float a) TypeTurquoise = (0.31f, 0.79f, 0.69f, 1.0f);// #4EC9B0
+        public static readonly (float r, float g, float b, float a) NumberGreen = (0.71f, 0.81f, 0.66f, 1.0f);  // #B5CEA8
+        public static readonly (float r, float g, float b, float a) TextWhite = (0.86f, 0.86f, 0.86f, 1.0f);    // #DCDCDC
+        public static readonly (float r, float g, float b, float a) LineNumber = (0.18f, 0.55f, 0.55f, 1.0f);   // #2B91AF
     }
 
     // -------------------------------------------------------------------------
@@ -271,6 +368,42 @@ namespace Stabileo
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate float Native_GetElementStressRatio(int elemId);
 
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public delegate bool Native_BeginChild(string strId, float w, float h, bool border, int flags);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Native_EndChild();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public delegate bool Native_BeginTabBar(string strId, int flags);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Native_EndTabBar();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public delegate bool Native_BeginTabItem(string label, IntPtr p_open, int flags);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Native_EndTabItem();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public delegate bool Native_Selectable(string label, bool selected, int flags, float w, float h);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public delegate bool Native_InputText(string label, byte[] buf, int bufSize, int flags);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Native_PushStyleColor(int idx, float r, float g, float b, float a);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void Native_PopStyleColor(int count);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate float Native_GetContentRegionAvailX();
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate float Native_GetContentRegionAvailY();
+
         [StructLayout(LayoutKind.Sequential)]
         public struct NativeEngineTable
         {
@@ -310,6 +443,18 @@ namespace Stabileo
             public IntPtr GetElementNormalForce;
             public IntPtr GetElementBendingMoment;
             public IntPtr GetElementStressRatio;
+            public IntPtr BeginChild;
+            public IntPtr EndChild;
+            public IntPtr BeginTabBar;
+            public IntPtr EndTabBar;
+            public IntPtr BeginTabItem;
+            public IntPtr EndTabItem;
+            public IntPtr Selectable;
+            public IntPtr InputText;
+            public IntPtr PushStyleColor;
+            public IntPtr PopStyleColor;
+            public IntPtr GetContentRegionAvailX;
+            public IntPtr GetContentRegionAvailY;
         }
 
         public static class Native
@@ -350,6 +495,18 @@ namespace Stabileo
             public static Native_GetElementNormalForce GetElementNormalForce;
             public static Native_GetElementBendingMoment GetElementBendingMoment;
             public static Native_GetElementStressRatio GetElementStressRatio;
+            public static Native_BeginChild BeginChild;
+            public static Native_EndChild EndChild;
+            public static Native_BeginTabBar BeginTabBar;
+            public static Native_EndTabBar EndTabBar;
+            public static Native_BeginTabItem BeginTabItem;
+            public static Native_EndTabItem EndTabItem;
+            public static Native_Selectable Selectable;
+            public static Native_InputText InputText;
+            public static Native_PushStyleColor PushStyleColor;
+            public static Native_PopStyleColor PopStyleColor;
+            public static Native_GetContentRegionAvailX GetContentRegionAvailX;
+            public static Native_GetContentRegionAvailY GetContentRegionAvailY;
 
             public static void Bind(ref NativeEngineTable t)
             {
@@ -389,6 +546,18 @@ namespace Stabileo
                 GetElementNormalForce = Marshal.GetDelegateForFunctionPointer<Native_GetElementNormalForce>(t.GetElementNormalForce);
                 GetElementBendingMoment = Marshal.GetDelegateForFunctionPointer<Native_GetElementBendingMoment>(t.GetElementBendingMoment);
                 GetElementStressRatio = Marshal.GetDelegateForFunctionPointer<Native_GetElementStressRatio>(t.GetElementStressRatio);
+                BeginChild = Marshal.GetDelegateForFunctionPointer<Native_BeginChild>(t.BeginChild);
+                EndChild = Marshal.GetDelegateForFunctionPointer<Native_EndChild>(t.EndChild);
+                BeginTabBar = Marshal.GetDelegateForFunctionPointer<Native_BeginTabBar>(t.BeginTabBar);
+                EndTabBar = Marshal.GetDelegateForFunctionPointer<Native_EndTabBar>(t.EndTabBar);
+                BeginTabItem = Marshal.GetDelegateForFunctionPointer<Native_BeginTabItem>(t.BeginTabItem);
+                EndTabItem = Marshal.GetDelegateForFunctionPointer<Native_EndTabItem>(t.EndTabItem);
+                Selectable = Marshal.GetDelegateForFunctionPointer<Native_Selectable>(t.Selectable);
+                InputText = Marshal.GetDelegateForFunctionPointer<Native_InputText>(t.InputText);
+                PushStyleColor = Marshal.GetDelegateForFunctionPointer<Native_PushStyleColor>(t.PushStyleColor);
+                PopStyleColor = Marshal.GetDelegateForFunctionPointer<Native_PopStyleColor>(t.PopStyleColor);
+                GetContentRegionAvailX = Marshal.GetDelegateForFunctionPointer<Native_GetContentRegionAvailX>(t.GetContentRegionAvailX);
+                GetContentRegionAvailY = Marshal.GetDelegateForFunctionPointer<Native_GetContentRegionAvailY>(t.GetContentRegionAvailY);
             }
         }
     }

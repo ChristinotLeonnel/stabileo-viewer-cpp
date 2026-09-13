@@ -73,7 +73,8 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Table : Éléments###TableElements", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Réactions###TableReactions", dockBottom);
 
-    // Si la fenêtre Vue 3D est explicitement demandée par l'utilisateur, on la docke au centre
+    // Docking de la réplique Visual Studio 2026 IDE C# et de la Vue 3D dans l'espace central
+    ImGui::DockBuilderDockWindow("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE", dockMain);
     if (showViewport3D) {
         ImGui::DockBuilderDockWindow("Vue 3D Principale###Viewport3D", dockMain);
     }
@@ -383,6 +384,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             if (ImGui::MenuItem("Cube de Navigation 3D", nullptr, &showViewCube)) {}
             ImGui::Separator();
             if (ImGui::MenuItem("Scripts & Plugins C# (Moteur Hazel)", nullptr, &showCSharpScripting)) {}
+            bool vsOpen = scripting::ScriptEngine::isPluginWindowOpen("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE");
+            if (ImGui::MenuItem("Visual Studio 2026 IDE (C#)", nullptr, &vsOpen)) {
+                scripting::ScriptEngine::setPluginWindowOpen("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE", vsOpen);
+            }
             ImGui::Separator();
             ImGui::MenuItem("Grille spatiale", nullptr, &state.showGrid);
             ImGui::MenuItem("Axes locaux des barres", nullptr, &state.showLocalAxes);
@@ -478,6 +483,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Scripts & Plugins C# (Hazel)", nullptr, &showCSharpScripting)) {}
+            bool vsOpen2 = scripting::ScriptEngine::isPluginWindowOpen("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE");
+            if (ImGui::MenuItem("Visual Studio 2026 IDE (C#)", nullptr, &vsOpen2)) {
+                scripting::ScriptEngine::setPluginWindowOpen("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE", vsOpen2);
+            }
             ImGui::EndMenu();
         }
 

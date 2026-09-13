@@ -92,6 +92,18 @@ struct NativeEngineTable {
     void* GetElementNormalForce;
     void* GetElementBendingMoment;
     void* GetElementStressRatio;
+    void* BeginChild;
+    void* EndChild;
+    void* BeginTabBar;
+    void* EndTabBar;
+    void* BeginTabItem;
+    void* EndTabItem;
+    void* Selectable;
+    void* InputText;
+    void* PushStyleColor;
+    void* PopStyleColor;
+    void* GetContentRegionAvailX;
+    void* GetContentRegionAvailY;
 };
 
 // Données statiques du moteur
@@ -212,6 +224,55 @@ static bool ImGui_TreeNode(const char* label) {
 
 static void ImGui_TreePop() {
     ImGui::TreePop();
+}
+
+static bool ImGui_BeginChild(const char* str_id, float w, float h, bool border, int flags) {
+    return ImGui::BeginChild(str_id ? str_id : "Child", ImVec2(w, h), border, flags);
+}
+
+static void ImGui_EndChild() {
+    ImGui::EndChild();
+}
+
+static bool ImGui_BeginTabBar(const char* str_id, int flags) {
+    return ImGui::BeginTabBar(str_id ? str_id : "TabBar", flags);
+}
+
+static void ImGui_EndTabBar() {
+    ImGui::EndTabBar();
+}
+
+static bool ImGui_BeginTabItem(const char* label, bool* p_open, int flags) {
+    return ImGui::BeginTabItem(label ? label : "Tab", p_open, flags);
+}
+
+static void ImGui_EndTabItem() {
+    ImGui::EndTabItem();
+}
+
+static bool ImGui_Selectable(const char* label, bool selected, int flags, float w, float h) {
+    return ImGui::Selectable(label ? label : "", selected, flags, ImVec2(w, h));
+}
+
+static bool ImGui_InputText(const char* label, char* buf, int buf_size, int flags) {
+    if (!buf || buf_size <= 0) return false;
+    return ImGui::InputText(label ? label : "##Input", buf, static_cast<size_t>(buf_size), flags);
+}
+
+static void ImGui_PushStyleColor(int idx, float r, float g, float b, float a) {
+    ImGui::PushStyleColor(idx, ImVec4(r, g, b, a));
+}
+
+static void ImGui_PopStyleColor(int count) {
+    ImGui::PopStyleColor(count);
+}
+
+static float ImGui_GetContentRegionAvailX() {
+    return ImGui::GetContentRegionAvail().x;
+}
+
+static float ImGui_GetContentRegionAvailY() {
+    return ImGui::GetContentRegionAvail().y;
 }
 
 static void Native_Log(int level, const char* msg) {
@@ -476,6 +537,18 @@ void ScriptEngine::bindNativeTable() {
     s_nativeTable.GetElementNormalForce = (void*)&Native_GetElementNormalForce;
     s_nativeTable.GetElementBendingMoment = (void*)&Native_GetElementBendingMoment;
     s_nativeTable.GetElementStressRatio = (void*)&Native_GetElementStressRatio;
+    s_nativeTable.BeginChild = (void*)&ImGui_BeginChild;
+    s_nativeTable.EndChild = (void*)&ImGui_EndChild;
+    s_nativeTable.BeginTabBar = (void*)&ImGui_BeginTabBar;
+    s_nativeTable.EndTabBar = (void*)&ImGui_EndTabBar;
+    s_nativeTable.BeginTabItem = (void*)&ImGui_BeginTabItem;
+    s_nativeTable.EndTabItem = (void*)&ImGui_EndTabItem;
+    s_nativeTable.Selectable = (void*)&ImGui_Selectable;
+    s_nativeTable.InputText = (void*)&ImGui_InputText;
+    s_nativeTable.PushStyleColor = (void*)&ImGui_PushStyleColor;
+    s_nativeTable.PopStyleColor = (void*)&ImGui_PopStyleColor;
+    s_nativeTable.GetContentRegionAvailX = (void*)&ImGui_GetContentRegionAvailX;
+    s_nativeTable.GetContentRegionAvailY = (void*)&ImGui_GetContentRegionAvailY;
 }
 
 bool ScriptEngine::initHostfxr() {
@@ -536,8 +609,23 @@ bool ScriptEngine::init(model::Structure* structure, bool* needsRebuildFlag) {
 
     bindNativeTable();
 
-    // S'assurer que le binaire initial existe (compilation si besoin)
-    if (!fs::exists(s_config.assemblyPath)) {
+    // Compilation automatique si le binaire n'existe pas ou si un script .cs a été modifié
+    bool needsCompile = !fs::exists(s_config.assemblyPath);
+    if (!needsCompile && fs::exists(s_config.scriptsDir)) {
+        std::error_code ec;
+        auto asmTime = fs::last_write_time(s_config.assemblyPath, ec);
+        if (!ec) {
+            for (const auto& entry : fs::directory_iterator(s_config.scriptsDir)) {
+                if (entry.is_regular_file() && entry.path().extension() == ".cs") {
+                    if (entry.last_write_time(ec) > asmTime) {
+                        needsCompile = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (needsCompile) {
         compileScripts();
     }
 
@@ -775,6 +863,10 @@ void ScriptEngine::drawScriptingWindow(bool* p_open) {
     // Arborescence des plugins détectés
     if (ImGui::CollapsingHeader("Plugins C# actifs (Cocher pour afficher)", ImGuiTreeNodeFlags_DefaultOpen)) {
         auto& map = getPluginWindowMap();
+        bool vsOpen = (map.find("Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE") == map.end() || map["Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE"]);
+        if (ImGui::Checkbox("Visual Studio 2026 IDE (Réplique C#)", &vsOpen)) {
+            map["Visual Studio 2026 - stabileo-viewer-cpp###VS2026IDE"] = vsOpen;
+        }
         bool ecOpen = (map.find("Eurocode 3 — Vérification Acier (C# Plugin)") == map.end() || map["Eurocode 3 — Vérification Acier (C# Plugin)"]);
         if (ImGui::Checkbox("Eurocode 3 - Vérification Acier (EN 1993-1-1)", &ecOpen)) {
             map["Eurocode 3 — Vérification Acier (C# Plugin)"] = ecOpen;
@@ -828,6 +920,17 @@ bool ScriptEngine::isInitialized() {
 
 int ScriptEngine::getLoadedPluginCount() {
     return s_loadedPlugins;
+}
+
+void ScriptEngine::setPluginWindowOpen(const std::string& title, bool open) {
+    auto& map = getPluginWindowMap();
+    map[title] = open;
+}
+
+bool ScriptEngine::isPluginWindowOpen(const std::string& title) {
+    auto& map = getPluginWindowMap();
+    if (map.find(title) == map.end()) return true;
+    return map[title];
 }
 
 const std::string& ScriptEngine::getLastLog() {

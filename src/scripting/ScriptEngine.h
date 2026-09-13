@@ -48,6 +48,10 @@ public:
     /// Nombre de plugins C# actifs détectés.
     static int getLoadedPluginCount();
 
+    /// Active ou désactive la visibilité d'une fenêtre de plugin C#.
+    static void setPluginWindowOpen(const std::string& title, bool open);
+    static bool isPluginWindowOpen(const std::string& title);
+
     /// Dernier journal de compilation ou message système.
     static const std::string& getLastLog();
 
