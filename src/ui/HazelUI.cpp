@@ -1,15 +1,69 @@
-// =============================================================================
-//  HazelUI.cpp — Composants et Thème d'Interface inspirés de Hazel Engine (The Cherno)
-// =============================================================================
-
 #include "ui/HazelUI.h"
 #include <imgui_internal.h>
+#include <filesystem>
 #include <cstdio>
+#include <string>
 
 namespace Hazel::UI {
 
+    void InitFonts(ImGuiIO& io) {
+        ImFontConfig config;
+        config.OversampleH = 3;
+        config.OversampleV = 2;
+        config.PixelSnapH = true;
+
+        const char* regularCandidates[] = {
+            "assets/fonts/Regular.ttf",
+            "../assets/fonts/Regular.ttf",
+            "../../assets/fonts/Regular.ttf",
+            "C:\\Windows\\Fonts\\segoeui.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf"
+        };
+
+        const char* boldCandidates[] = {
+            "assets/fonts/Bold.ttf",
+            "../assets/fonts/Bold.ttf",
+            "../../assets/fonts/Bold.ttf",
+            "C:\\Windows\\Fonts\\segoeuib.ttf",
+            "C:\\Windows\\Fonts\\arialbd.ttf"
+        };
+
+        std::string regPath;
+        for (const char* p : regularCandidates) {
+            if (std::filesystem::exists(p)) {
+                regPath = p;
+                break;
+            }
+        }
+
+        std::string bldPath;
+        for (const char* p : boldCandidates) {
+            if (std::filesystem::exists(p)) {
+                bldPath = p;
+                break;
+            }
+        }
+
+        if (!regPath.empty()) {
+            // Police principale Segoe UI / Open Sans (18px)
+            io.FontDefault = io.Fonts->AddFontFromFileTTF(regPath.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesDefault());
+
+            // Police grasse pour titres, boutons X, Y, Z (18px)
+            if (!bldPath.empty()) {
+                io.Fonts->AddFontFromFileTTF(bldPath.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesDefault());
+            }
+        } else {
+            io.Fonts->AddFontDefault();
+        }
+    }
+
     void SetDarkThemeColors() {
         ImGuiStyle& style = ImGui::GetStyle();
+
+        // Lissage anti-aliasing haute qualité
+        style.AntiAliasedLines       = true;
+        style.AntiAliasedLinesUseTex = true;
+        style.AntiAliasedFill        = true;
 
         // Géométrie et arrondis de style Hazelnut Editor
         style.WindowRounding    = 7.0f;
@@ -105,7 +159,7 @@ namespace Hazel::UI {
     bool DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue, float columnWidth, float speed) {
         bool modified = false;
         ImGuiIO& io = ImGui::GetIO();
-        auto boldFont = io.Fonts->Fonts[0];
+        auto boldFont = (io.Fonts->Fonts.Size > 1) ? io.Fonts->Fonts[1] : io.Fonts->Fonts[0];
 
         ImGui::PushID(label.c_str());
 

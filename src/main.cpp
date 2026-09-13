@@ -18,6 +18,8 @@
 #include "scene/StructureModel.h"
 #include "solver/LinearSolver.h"
 #include "ui/UIManager.h"
+#include "ui/HazelUI.h"
+#include "ui/IconManager.h"
 #include "scripting/ScriptEngine.h"
 
 #include <iostream>
@@ -387,11 +389,17 @@ int main(int argc, char* argv[]) {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
+    // Typographie moderne haute définition (Hazel Engine)
+    Hazel::UI::InitFonts(io);
+
     UIManager uiManager;
     uiManager.setupStyle();
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    // Initialisation du gestionnaire d'icônes OpenGL (Hazel Engine)
+    IconManager::init();
 
     // Pipeline de rendu
     StructureRenderer renderer;
@@ -624,6 +632,7 @@ int main(int argc, char* argv[]) {
 
     // Nettoyage
     scripting::ScriptEngine::shutdown();
+    IconManager::shutdown();
     fbo.cleanup();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

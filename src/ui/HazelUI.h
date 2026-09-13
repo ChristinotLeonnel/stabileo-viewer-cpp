@@ -16,6 +16,9 @@
 
 namespace Hazel::UI {
 
+    /// Initialise la typographie moderne (anti-aliasing, polices TTF haute résolution, accents).
+    void InitFonts(ImGuiIO& io);
+
     /// Applique le thème sombre officiel de Hazelnut Editor (The Cherno).
     void SetDarkThemeColors();
 

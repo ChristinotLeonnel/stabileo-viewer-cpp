@@ -4,6 +4,7 @@
 
 #include "ui/UIManager.h"
 #include "ui/HazelUI.h"
+#include "ui/IconManager.h"
 #include "solver/LinearSolver.h"
 #include "scene/ModelLoader.h"
 #include "scripting/ScriptEngine.h"
@@ -451,7 +452,7 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
     if (!showSimulationToolbar) return;
 
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    float toolbarWidth = 590.0f;
+    float toolbarWidth = 660.0f;
     float toolbarHeight = 44.0f;
     float posX = vp->WorkPos.x + (vp->WorkSize.x - toolbarWidth) * 0.5f;
     float posY = vp->WorkPos.y + 8.0f;
@@ -468,14 +469,16 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 6.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.125f, 0.13f, 0.92f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.125f, 0.13f, 0.94f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.255f, 0.26f, 0.90f));
 
     if (ImGui::Begin("##HazelSimulationToolbar", nullptr, flags)) {
-        // 1. Bouton Play (Résoudre EF)
+        // 1. Bouton Play avec Icône (Résoudre EF)
+        ImGui::Image(IconManager::getIcon(IconType::PlaySimulation), ImVec2(22.0f, 22.0f));
+        ImGui::SameLine(0.0f, 4.0f);
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.55f, 0.28f, 0.85f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.65f, 0.32f, 1.0f));
-        if (ImGui::Button(" > Resoudre EF ", ImVec2(115.0f, 28.0f))) {
+        if (ImGui::Button(" Résoudre EF ", ImVec2(105.0f, 28.0f))) {
             bool solved = solver::solveLinearStatic(structure);
             if (solved) {
                 needsRebuild = true;
@@ -485,23 +488,23 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
             }
         }
         ImGui::PopStyleColor(2);
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Resoudre la structure par la methode des elements finis 3D (Direct Stiffness Method)");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Résoudre la structure par la méthode des éléments finis 3D (Direct Stiffness Method)");
 
         ImGui::SameLine();
 
-        // 2. Bouton Bascule Deformee
+        // 2. Bouton Bascule Déformée
         bool deformActive = state.showDeformed;
         if (deformActive) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.45f, 0.80f, 0.90f));
         }
-        if (ImGui::Button(" ~ Deformee ", ImVec2(95.0f, 28.0f))) {
+        if (ImGui::Button(" 〰 Déformée ", ImVec2(98.0f, 28.0f))) {
             state.showDeformed = !state.showDeformed;
             needsDeformedRebuild = true;
         }
         if (deformActive) {
             ImGui::PopStyleColor();
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Activer / Desactiver la visualisation de la deformee 3D");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Activer / Désactiver la visualisation de la déformée 3D");
 
         ImGui::SameLine();
 
@@ -510,7 +513,7 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
         if (diagActive) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.35f, 0.15f, 0.90f));
         }
-        if (ImGui::Button(" # Diagrammes ", ImVec2(105.0f, 28.0f))) {
+        if (ImGui::Button(" 📊 Diagrammes ", ImVec2(108.0f, 28.0f))) {
             state.showDiagram = !state.showDiagram;
             needsDiagramRebuild = true;
         }
@@ -526,7 +529,7 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
         if (heatActive) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.15f, 0.45f, 0.90f));
         }
-        if (ImGui::Button(" * Contraintes ", ImVec2(105.0f, 28.0f))) {
+        if (ImGui::Button(" 🌡 Contraintes ", ImVec2(108.0f, 28.0f))) {
             state.showHeatmap = !state.showHeatmap;
             needsHeatmapRebuild = true;
         }
@@ -537,11 +540,13 @@ void UIManager::drawHazelSimulationToolbar(model::Structure& structure, Camera& 
 
         ImGui::SameLine();
 
-        // 5. Bouton Camera Reset
-        if (ImGui::Button(" [O] Camera ", ImVec2(90.0f, 28.0f))) {
+        // 5. Bouton Caméra Reset avec Icône
+        ImGui::Image(IconManager::getIcon(IconType::ResetCamera), ImVec2(22.0f, 22.0f));
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button(" Caméra ", ImVec2(78.0f, 28.0f))) {
             camera.fitToScene(boundsMin, boundsMax);
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Recentrer et cadrer la camera sur la structure");
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Recentrer et cadrer la caméra sur la structure");
     }
     ImGui::End();
 

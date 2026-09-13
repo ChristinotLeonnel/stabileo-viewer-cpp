@@ -3,6 +3,7 @@
 // =============================================================================
 
 #include "ui/ContentBrowserPanel.h"
+#include "ui/IconManager.h"
 #include <imgui.h>
 #include <algorithm>
 #include <system_error>
@@ -95,37 +96,20 @@ void ContentBrowserPanel::onImGuiRender() {
             std::string ext = path.extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(::tolower(c)); });
 
-            // Couleur personnalisée selon le type d'asset (comme dans Hazel Engine)
-            ImVec4 btnColor = isDir ? ImVec4(0.22f, 0.30f, 0.40f, 0.85f) :
-                              (ext == ".json") ? ImVec4(0.20f, 0.38f, 0.25f, 0.85f) :
-                              (ext == ".dxf")  ? ImVec4(0.40f, 0.25f, 0.20f, 0.85f) :
-                              (ext == ".cs")   ? ImVec4(0.35f, 0.20f, 0.40f, 0.85f) :
-                                                 ImVec4(0.20f, 0.205f, 0.21f, 0.85f);
+            ImTextureID iconTex = IconManager::getIconForPath(ext, isDir);
 
-            ImGui::PushStyleColor(ImGuiCol_Button, btnColor);
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(btnColor.x + 0.1f, btnColor.y + 0.1f, btnColor.z + 0.1f, 1.0f));
+            // Bouton d'icône graphique fidèle à Hazel Engine (The Cherno)
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.40f, 0.55f, 0.35f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.20f, 0.30f, 0.45f, 0.60f));
 
-            // Libellé de bouton
-            char iconLabel[32];
-            if (isDir) {
-                snprintf(iconLabel, sizeof(iconLabel), "[DIR]");
-            } else if (ext == ".json") {
-                snprintf(iconLabel, sizeof(iconLabel), "[JSON]");
-            } else if (ext == ".dxf") {
-                snprintf(iconLabel, sizeof(iconLabel), "[CAD]");
-            } else if (ext == ".cs") {
-                snprintf(iconLabel, sizeof(iconLabel), "[C#]");
-            } else {
-                snprintf(iconLabel, sizeof(iconLabel), "[FILE]");
-            }
-
-            if (ImGui::Button(iconLabel, ImVec2(thumbnailSize_, thumbnailSize_ * 0.7f))) {
+            if (ImGui::ImageButton(filenameStr.c_str(), iconTex, ImVec2(thumbnailSize_, thumbnailSize_))) {
                 if (isDir) {
                     currentDirectory_ /= path.filename();
                 }
             }
 
-            // Double clic pour ouvrir / charger
+            // Double-clic pour ouvrir le dossier ou charger le modèle/script
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 if (isDir) {
                     currentDirectory_ /= path.filename();
@@ -138,7 +122,7 @@ void ContentBrowserPanel::onImGuiRender() {
                 }
             }
 
-            ImGui::PopStyleColor(2);
+            ImGui::PopStyleColor(3);
 
             // Libellé tronqué avec infobulle complète
             std::string displayLabel = filenameStr;
