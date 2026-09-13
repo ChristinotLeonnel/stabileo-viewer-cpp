@@ -10,6 +10,7 @@
 #include <backends/imgui_impl_opengl3.h>
 
 #include "core/Camera.h"
+#include "core/Framebuffer.h"
 #include "render/StructureRenderer.h"
 #include "scene/DemoModels.h"
 #include "scene/ModelLoader.h"
@@ -39,16 +40,17 @@ struct AppContext {
     glm::vec3 boundsMin{0.0f};
     glm::vec3 boundsMax{0.0f};
     RenderState* renderState = nullptr; // référence non-possédée, assignée dans main()
+    UIManager*   uiManager   = nullptr;
 };
 
-/// Convertit une position écran (pixels) en un rayon 3D (origine + direction)
+/// Convertit une position relative au viewport (pixels) en un rayon 3D (origine + direction)
 /// dans le repère du monde, à partir de la caméra courante.
-static bool screenPointToRay(double mx, double my, int winW, int winH, const Camera& camera,
+static bool screenPointToRay(double relX, double relY, float vpW, float vpH, const Camera& camera,
                               glm::vec3& outOrigin, glm::vec3& outDir) {
-    if (winW <= 0 || winH <= 0) return false;
+    if (vpW <= 0.0f || vpH <= 0.0f) return false;
 
-    float ndcX =  static_cast<float>(2.0 * mx / winW - 1.0);
-    float ndcY = -static_cast<float>(2.0 * my / winH - 1.0); // écran (Y bas) -> NDC (Y haut)
+    float ndcX =  static_cast<float>(2.0 * relX / vpW - 1.0);
+    float ndcY = -static_cast<float>(2.0 * relY / vpH - 1.0); // écran (Y bas) -> NDC (Y haut)
 
     glm::mat4 invVP = glm::inverse(camera.getProjectionMatrix() * camera.getViewMatrix());
 
@@ -96,13 +98,17 @@ static float raySegmentDistance(const glm::vec3& rayOrigin, const glm::vec3& ray
 }
 
 /// Sélectionne le nœud ou la barre le plus proche du rayon souris (picking 3D).
-static void performPicking(AppContext& ctx, GLFWwindow* window,
+static void performPicking(AppContext& ctx, GLFWwindow* /*window*/,
                             const model::Structure& structure, RenderState& renderState) {
-    int winW, winH;
-    glfwGetWindowSize(window, &winW, &winH);
+    float vpW = ctx.uiManager ? ctx.uiManager->viewportSize.x : 1600.0f;
+    float vpH = ctx.uiManager ? ctx.uiManager->viewportSize.y : 900.0f;
+    float relX = static_cast<float>(ctx.mouseDownX - (ctx.uiManager ? ctx.uiManager->viewportPos.x : 0.0f));
+    float relY = static_cast<float>(ctx.mouseDownY - (ctx.uiManager ? ctx.uiManager->viewportPos.y : 0.0f));
+
+    if (relX < 0.0f || relX > vpW || relY < 0.0f || relY > vpH) return;
 
     glm::vec3 rayOrigin, rayDir;
-    if (!screenPointToRay(ctx.lastMouseX, ctx.lastMouseY, winW, winH, ctx.camera, rayOrigin, rayDir)) {
+    if (!screenPointToRay(relX, relY, vpW, vpH, ctx.camera, rayOrigin, rayDir)) {
         return;
     }
 
@@ -151,22 +157,16 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
 
-    const bool uiWantsMouse = ImGui::GetIO().WantCaptureMouse;
+    bool overViewport = ctx->uiManager ? ctx->uiManager->viewportHovered : !ImGui::GetIO().WantCaptureMouse;
 
     if (action == GLFW_RELEASE) {
-        // BUGFIX: on relâche TOUJOURS l'état, même si le curseur est repassé
-        // au-dessus d'un panneau ImGui entre le clic et le relâchement.
-        // Avant ce correctif, relâcher le bouton sur l'interface laissait
-        // mouseLeftDown/mouseRightDown/mouseMiddleDown bloqué à "true", et la
-        // caméra continuait de tourner ou de se déplacer toute seule au
-        // prochain mouvement de souris, même loin de l'UI.
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (ctx->mouseLeftDown && !uiWantsMouse) {
+            if (ctx->mouseLeftDown) {
                 double mx, my;
                 glfwGetCursorPos(window, &mx, &my);
                 double moved = std::hypot(mx - ctx->mouseDownX, my - ctx->mouseDownY);
                 if (moved < 4.0) {
-                    ctx->pickRequested = true; // clic net (pas un glisser) -> sélection
+                    ctx->pickRequested = true; // clic net -> sélection
                 }
             }
             ctx->mouseLeftDown = false;
@@ -175,8 +175,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
         } else if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
             ctx->mouseMiddleDown = false;
         }
-    } else if (action == GLFW_PRESS && !uiWantsMouse) {
-        // On n'initie une action caméra que si le clic ne cible pas l'interface.
+    } else if (action == GLFW_PRESS && overViewport) {
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             ctx->mouseLeftDown = true;
             glfwGetCursorPos(window, &ctx->mouseDownX, &ctx->mouseDownY);
@@ -199,8 +198,6 @@ static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
     ctx->lastMouseX = xpos;
     ctx->lastMouseY = ypos;
 
-    if (ImGui::GetIO().WantCaptureMouse) return;
-
     if (ctx->mouseLeftDown) {
         ctx->camera.rotate(static_cast<float>(dx), static_cast<float>(dy));
     } else if (ctx->mouseRightDown || ctx->mouseMiddleDown) {
@@ -209,19 +206,19 @@ static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 }
 
 static void scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset) {
-    if (ImGui::GetIO().WantCaptureMouse) return;
-
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
 
-    // Zoom centré sur le curseur : on vise le point du monde situé sous la
-    // souris (projeté sur le plan qui passe par le pivot actuel) et on
-    // rapproche le pivot vers ce point en zoomant, au lieu de zoomer
-    // toujours vers le centre fixe de la scène.
-    int winW, winH;
-    glfwGetWindowSize(window, &winW, &winH);
+    bool overViewport = ctx->uiManager ? ctx->uiManager->viewportHovered : !ImGui::GetIO().WantCaptureMouse;
+    if (!overViewport) return;
+
+    float vpW = ctx->uiManager ? ctx->uiManager->viewportSize.x : 1600.0f;
+    float vpH = ctx->uiManager ? ctx->uiManager->viewportSize.y : 900.0f;
+    float relX = static_cast<float>(ctx->lastMouseX - (ctx->uiManager ? ctx->uiManager->viewportPos.x : 0.0f));
+    float relY = static_cast<float>(ctx->lastMouseY - (ctx->uiManager ? ctx->uiManager->viewportPos.y : 0.0f));
+
     glm::vec3 rayOrigin, rayDir;
-    if (screenPointToRay(ctx->lastMouseX, ctx->lastMouseY, winW, winH, ctx->camera, rayOrigin, rayDir)) {
+    if (screenPointToRay(relX, relY, vpW, vpH, ctx->camera, rayOrigin, rayDir)) {
         glm::vec3 viewDir = glm::normalize(ctx->camera.target - ctx->camera.getPosition());
         float denom = glm::dot(viewDir, rayDir);
         if (std::abs(denom) > 1e-5f) {
@@ -375,6 +372,11 @@ int main(int argc, char* argv[]) {
     solver::solveLinearStatic(currentStructure);
     RenderState renderState;
     appCtx.renderState = &renderState;
+    appCtx.uiManager   = &uiManager;
+
+    // Framebuffer pour le rendu de la Vue 3D dockable
+    Framebuffer fbo;
+    fbo.init(1600, 900);
 
     renderer.rebuild(currentStructure);
     currentStructure.computeBounds(appCtx.boundsMin, appCtx.boundsMax);
@@ -501,8 +503,10 @@ int main(int argc, char* argv[]) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Dessin de l'interface
-        uiManager.drawUI(renderState, currentStructure, appCtx.camera, appCtx.boundsMin, appCtx.boundsMax, currentFps);
+        // Dessin de l'interface et de la fenêtre Vue 3D dockée
+        uiManager.drawUI(renderState, currentStructure, appCtx.camera,
+                         appCtx.boundsMin, appCtx.boundsMax, currentFps,
+                         fbo.texture);
 
         // Traitement des flags de rebuild
         if (uiManager.needsRebuild) {
@@ -524,29 +528,40 @@ int main(int argc, char* argv[]) {
             renderer.rebuildDeformed(currentStructure, renderState.deformScale * osc);
         }
 
-        // Rendu ImGui
+        // Rendu ImGui pour construire les commandes graphiques
         ImGui::Render();
 
-        // Mise à jour du viewport et du ratio caméra
+        // 1. Rendu hors-écran de la scène 3D dans le Framebuffer OpenGL (FBO)
+        int fboW = static_cast<int>(uiManager.viewportSize.x);
+        int fboH = static_cast<int>(uiManager.viewportSize.y);
+        if (fboW > 0 && fboH > 0) {
+            fbo.resize(fboW, fboH);
+            fbo.bind();
+            glViewport(0, 0, fboW, fboH);
+            appCtx.camera.aspectRatio = static_cast<float>(fboW) / static_cast<float>(fboH);
+
+            glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            renderer.draw(appCtx.camera, renderState, currentTime);
+            fbo.unbind();
+        }
+
+        // 2. Rendu de la fenêtre principale GLFW (contenant le DockSpace et toutes les fenêtres ImGui)
         int displayW, displayH;
         glfwGetFramebufferSize(window, &displayW, &displayH);
         glViewport(0, 0, displayW, displayH);
-        appCtx.camera.aspectRatio = (displayH > 0) ? (static_cast<float>(displayW) / static_cast<float>(displayH)) : 1.0f;
 
-        // Effacement de l'écran avec un fond sombre d'ingénierie
-        glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.06f, 0.07f, 0.09f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        // Dessin de la scène 3D
-        renderer.draw(appCtx.camera, renderState, currentTime);
-
-        // Rendu des commandes de draw ImGui par-dessus la scène
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
     }
 
     // Nettoyage
+    fbo.cleanup();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

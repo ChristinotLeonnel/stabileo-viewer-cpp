@@ -12,9 +12,9 @@ class ViewCube {
 public:
     ViewCube() = default;
 
-    /// Dessine le ViewCube interactif en superposition 3D dans le coin supérieur droit.
+    /// Dessine le ViewCube interactif en superposition 3D.
     /// Retourne true si une interaction utilisateur a déclenché un changement de vue.
-    bool draw(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax);
+    bool draw(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax, float posX = -1.0f, float posY = -1.0f);
 
     float cubeSize       = 95.0f; // Dimension en pixels
     bool  showCompass    = true;  // Anneau boussole Nord/Sud/Est/Ouest

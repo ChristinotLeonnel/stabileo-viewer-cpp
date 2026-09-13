@@ -36,15 +36,17 @@ struct FaceDef {
 
 } // namespace
 
-bool ViewCube::draw(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax) {
+bool ViewCube::draw(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax, float posX, float posY) {
     ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+    ImDrawList* drawList = (posX >= 0.0f) ? ImGui::GetWindowDrawList() : ImGui::GetForegroundDrawList();
     ImGuiIO& io = ImGui::GetIO();
 
-    // Position du centre du ViewCube dans le coin supérieur droit
+    // Position du centre du ViewCube
     float marginX = 90.0f;
     float marginY = 85.0f;
-    ImVec2 center(vp->Pos.x + vp->Size.x - marginX, vp->Pos.y + marginY);
+    ImVec2 center = (posX >= 0.0f && posY >= 0.0f)
+                  ? ImVec2(posX, posY)
+                  : ImVec2(vp->Pos.x + vp->Size.x - marginX, vp->Pos.y + marginY);
     float s = cubeSize * 0.38f;
 
     // Matrice d'orientation caméra (rotation pure)

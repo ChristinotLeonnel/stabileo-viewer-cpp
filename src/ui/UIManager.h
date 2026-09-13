@@ -20,7 +20,8 @@ public:
     /// Dessine le DockSpace et l'ensemble des panneaux ImGui.
     /// Retourne true si un rebuild graphique est nécessaire.
     bool drawUI(RenderState& state, model::Structure& structure, Camera& camera,
-                const glm::vec3& boundsMin, const glm::vec3& boundsMax, int fps);
+                const glm::vec3& boundsMin, const glm::vec3& boundsMax, int fps,
+                GLuint viewportTexture = 0);
 
     /// Force la réinitialisation de la disposition des fenêtres dockées.
     void resetLayout() { resetDockingLayout_ = true; }
@@ -35,6 +36,12 @@ public:
     std::string pendingDxfLoad;
     scene::DxfImportOptions dxfOptions;
 
+    // Géométrie et état de la fenêtre Vue 3D dockée (pour l'orientation et le picking caméra)
+    ImVec2 viewportPos{0.0f, 0.0f};
+    ImVec2 viewportSize{1280.0f, 720.0f};
+    bool   viewportHovered = false;
+    bool   viewportFocused = false;
+
     // Cube de navigation 3D interactif (Robot Structural Analysis / AutoCAD)
     ui::ViewCube viewCube;
     bool showViewCube         = true;
@@ -45,7 +52,9 @@ public:
     bool needsDiagramRebuild  = false;
     bool needsHeatmapRebuild  = false;
 
-    // Visibilité individuelle de chaque onglet / fenêtre dockable
+    // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026)
+    bool showViewport3D       = true;
+    bool showStructureExplorer = true;
     bool showDisplayLayers    = true;
     bool showSectionPlanes    = true;
     bool showDeformedResults  = true;
@@ -58,6 +67,7 @@ public:
     bool showTableNodes       = true;
     bool showTableElements    = true;
     bool showTableReactions   = true;
+    bool showSolverLog        = true;
     bool showDemoImGui        = false;
 
 private:
@@ -66,7 +76,13 @@ private:
                          RenderState& state, int fps);
     void drawQuickToolbar(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax, RenderState& state);
 
-    // Chaque onglet est une fenêtre indépendante dockable
+    // Fenêtre centrale : Vue 3D dockable avec FBO OpenGL
+    void drawViewportWindow(Camera& camera, GLuint textureId,
+                            const glm::vec3& boundsMin, const glm::vec3& boundsMax,
+                            RenderState& state);
+
+    // Fenêtres d'outils et de documents dockables
+    void drawStructureExplorerWindow(model::Structure& structure, RenderState& state);
     void drawDisplayLayersWindow(RenderState& state);
     void drawSectionPlanesWindow(RenderState& state, const glm::vec3& boundsMin, const glm::vec3& boundsMax, Camera& camera);
     void drawDeformedResultsWindow(RenderState& state);
@@ -79,6 +95,7 @@ private:
     void drawTableNodesWindow(const model::Structure& structure);
     void drawTableElementsWindow(const model::Structure& structure);
     void drawTableReactionsWindow(const model::Structure& structure);
+    void drawSolverLogWindow(const model::Structure& structure);
 
     void buildDefaultDockLayout(ImGuiID dockspaceId);
 
