@@ -62,6 +62,10 @@ public:
     bool showContentBrowser   = true;
     bool showSimulationToolbar = true;
 
+    // Mode Plein Écran (F11)
+    bool isFullscreen             = false;
+    bool pendingToggleFullscreen  = false;
+
     // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026 / Hazelnut)
     bool showViewport3D       = false; // Désactivé : la scène 3D s'affiche directement plein écran sans superposition
     bool showStructureExplorer = false; // Intégré dans la Hiérarchie de Scène Hazel

@@ -45,12 +45,12 @@ namespace Hazel::UI {
         }
 
         if (!regPath.empty()) {
-            // Police principale Segoe UI / Open Sans (18px)
-            io.FontDefault = io.Fonts->AddFontFromFileTTF(regPath.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesDefault());
+            // Police principale Segoe UI / Open Sans agrandie (20.5px) pour un confort de lecture optimal
+            io.FontDefault = io.Fonts->AddFontFromFileTTF(regPath.c_str(), 20.5f, &config, io.Fonts->GetGlyphRangesDefault());
 
-            // Police grasse pour titres, boutons X, Y, Z (18px)
+            // Police grasse assortie (20.5px) pour titres, boutons X, Y, Z
             if (!bldPath.empty()) {
-                io.Fonts->AddFontFromFileTTF(bldPath.c_str(), 18.0f, &config, io.Fonts->GetGlyphRangesDefault());
+                io.Fonts->AddFontFromFileTTF(bldPath.c_str(), 20.5f, &config, io.Fonts->GetGlyphRangesDefault());
             }
         } else {
             io.Fonts->AddFontDefault();

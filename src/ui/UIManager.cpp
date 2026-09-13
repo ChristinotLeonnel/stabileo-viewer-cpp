@@ -302,6 +302,10 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             if (ImGui::MenuItem("Déplacement libre des fenêtres (Shift pour docker)", nullptr, shiftDocking)) {
                 ImGui::GetIO().ConfigDockingWithShift = !ImGui::GetIO().ConfigDockingWithShift;
             }
+            ImGui::Separator();
+            if (ImGui::MenuItem(isFullscreen ? "Quitter le Plein Écran" : "Mode Plein Écran", "F11", isFullscreen)) {
+                pendingToggleFullscreen = true;
+            }
             if (ImGui::MenuItem("Réinitialiser la disposition (Visual Studio 2026)")) {
                 resetLayout();
             }
@@ -425,9 +429,13 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
         if (ImGui::Button(camera.orthographic ? "Persp" : "Ortho")) {
             camera.orthographic = !camera.orthographic;
         }
+        ImGui::SameLine(0.0f, 6.0f);
+        if (ImGui::Button(isFullscreen ? "Fenêtré (F11)" : "Plein Écran (F11)")) {
+            pendingToggleFullscreen = true;
+        }
 
         // Zone d'information et badges d'état à droite (style Visual Studio status indicators)
-        float rightInfoWidth = 380.0f;
+        float rightInfoWidth = 400.0f;
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - rightInfoWidth);
 
         ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "STABILEO 2026");

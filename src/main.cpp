@@ -44,7 +44,37 @@ struct AppContext {
     glm::vec3 boundsMax{0.0f};
     RenderState* renderState = nullptr; // référence non-possédée, assignée dans main()
     UIManager*   uiManager   = nullptr;
+    bool isFullscreen        = false;
+    int  windowedX           = 100;
+    int  windowedY           = 100;
+    int  windowedW           = 1600;
+    int  windowedH           = 900;
 };
+
+/// Bascule entre le mode fenêtré et le mode plein écran exclusif / sans bordure.
+static void toggleFullscreen(GLFWwindow* window, AppContext& ctx) {
+    if (!window) return;
+    if (!ctx.isFullscreen) {
+        glfwGetWindowPos(window, &ctx.windowedX, &ctx.windowedY);
+        glfwGetWindowSize(window, &ctx.windowedW, &ctx.windowedH);
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        if (monitor) {
+            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+            if (mode) {
+                glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+                ctx.isFullscreen = true;
+            }
+        }
+    } else {
+        glfwSetWindowMonitor(window, nullptr, ctx.windowedX, ctx.windowedY, ctx.windowedW, ctx.windowedH, 0);
+        ctx.isFullscreen = false;
+    }
+
+    if (ctx.uiManager) {
+        ctx.uiManager->isFullscreen = ctx.isFullscreen;
+    }
+}
 
 /// Convertit une position relative au viewport (pixels) en un rayon 3D (origine + direction)
 /// dans le repère du monde, à partir de la caméra courante.
@@ -263,11 +293,18 @@ static void scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffse
 }
 
 static void keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int /*mods*/) {
-    if (ImGui::GetIO().WantCaptureKeyboard) return;
     if (action != GLFW_PRESS) return;
 
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
+
+    // F11 bascule toujours le plein écran quel que soit le focus ImGui
+    if (key == GLFW_KEY_F11) {
+        toggleFullscreen(window, *ctx);
+        return;
+    }
+
+    if (ImGui::GetIO().WantCaptureKeyboard) return;
 
     switch (key) {
         case GLFW_KEY_1: ctx->camera.setFrontView(); break;
@@ -555,6 +592,12 @@ int main(int argc, char* argv[]) {
         uiManager.drawUI(renderState, currentStructure, appCtx.camera,
                          appCtx.boundsMin, appCtx.boundsMax, currentFps,
                          fbo.texture);
+
+        // Traitement de la demande de basculement plein écran (F11 ou Menu)
+        if (uiManager.pendingToggleFullscreen) {
+            uiManager.pendingToggleFullscreen = false;
+            toggleFullscreen(window, appCtx);
+        }
 
         // Traitement des flags de rebuild
         if (uiManager.needsRebuild || csharpNeedsRebuild) {
