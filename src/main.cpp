@@ -21,6 +21,11 @@
 #include "ui/HazelUI.h"
 #include "ui/IconManager.h"
 #include "scripting/ScriptEngine.h"
+#include "structural/ModelDatabase.h"
+#include "structural/BuildingGenerator.h"
+#include "commands/CommandManager.h"
+#include "commands/StructuralCommands.h"
+#include "io/ProjectSerializer.h"
 
 #include <iostream>
 #include <chrono>
@@ -362,7 +367,61 @@ int main(int argc, char* argv[]) {
                   << " | " << pluginCount << " plugin(s) C# actif(s).\n";
         scripting::ScriptEngine::shutdown();
 
-        return (ok && dxfOk && trussOk && scriptOk) ? 0 : 1;
+        // =====================================================================
+        // Validation du Système de Modélisation Structurale & Génie Civil CAO/FEM
+        // =====================================================================
+        std::cout << "\n======================================================\n";
+        std::cout << "  VALIDATION MODÉLISATION CAO/FEM (STYLE ROBOT STRUCTURAL)\n";
+        std::cout << "======================================================\n";
+
+        // 1. Test ModelDatabase & CommandManager (Undo/Redo)
+        stabileo::structural::ModelDatabase testDb;
+        stabileo::commands::CommandManager testCmdMgr;
+
+        bool cmdOk = testCmdMgr.executeCommand(std::make_unique<stabileo::commands::CreateMemberCommand>(
+            testDb, glm::dvec3(0, 0, 0), glm::dvec3(0, 0, 3.5), stabileo::structural::MemberType::Column));
+        size_t initialNodes = testDb.getNodes().size();
+        size_t initialMembers = testDb.getMembers().size();
+
+        bool undoOk = testCmdMgr.undo();
+        bool redoOk = testCmdMgr.redo();
+        bool cmdTestPassed = cmdOk && undoOk && redoOk &&
+                             (testDb.getMembers().size() == initialMembers) &&
+                             (testDb.getNodes().size() == initialNodes);
+        std::cout << "[Test CAO] Commandes & Undo/Redo : " << (cmdTestPassed ? "SUCCÈS" : "ÉCHEC") << "\n";
+
+        // 2. Test Bâtiment R+2 (15m x 10m - C25/30) & Solveur EF
+        std::cout << "[Test CAO] Génération Bâtiment R+2 (15m x 10m)... \n";
+        stabileo::structural::ModelDatabase buildingDb;
+        stabileo::structural::BuildingGenerator::generateBuildingRPlus2(buildingDb);
+
+        size_t bldNodes = buildingDb.getNodes().size();     // 48 nœuds
+        size_t bldMembers = buildingDb.getMembers().size(); // 81 barres (36 poteaux + 45 poutres)
+        size_t bldPanels = buildingDb.getPanels().size();   // 18 dalles
+        size_t bldSupports = buildingDb.getSupports().size(); // 12 encastrements
+
+        std::cout << "           Nœuds: " << bldNodes << " | Barres: " << bldMembers
+                  << " | Dalles: " << bldPanels << " | Appuis: " << bldSupports << "\n";
+
+        model::Structure bldStructure;
+        stabileo::structural::BuildingGenerator::syncToLegacyStructure(buildingDb, bldStructure);
+        bool bldSolved = solver::solveLinearStatic(bldStructure);
+        std::cout << "[Test CAO] Résolution EF Bâtiment R+2 : " << (bldSolved ? "SUCCÈS" : "ÉCHEC") << "\n";
+
+        // 3. Test Persistance de Projet (.tsa / JSON)
+        std::string testPath = "build_test_project.tsa";
+        bool saveOk = stabileo::io::ProjectSerializer::saveToFile(buildingDb, testPath);
+        stabileo::structural::ModelDatabase reloadedDb;
+        bool loadOk = stabileo::io::ProjectSerializer::loadFromFile(reloadedDb, testPath);
+        bool ioPassed = saveOk && loadOk && (reloadedDb.getNodes().size() == bldNodes) && (reloadedDb.getMembers().size() == bldMembers);
+        std::cout << "[Test CAO] Sérialisation Projet .tsa : " << (ioPassed ? "SUCCÈS" : "ÉCHEC") << "\n";
+        std::remove(testPath.c_str());
+
+        bool structuralSuiteOk = cmdTestPassed && (bldNodes == 48) && (bldMembers == 87) && bldSolved && ioPassed;
+        std::cout << "--> " << (structuralSuiteOk ? "[SUCCÈS GLOBAL]" : "[ÉCHEC]") << " Atelier de Modélisation Structurale validé !\n";
+        std::cout << "======================================================\n\n";
+
+        return (ok && dxfOk && trussOk && scriptOk && structuralSuiteOk) ? 0 : 1;
     }
 
     // ---- Initialisation GLFW ----

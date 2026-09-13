@@ -11,6 +11,7 @@
 #include "ui/HazelUI.h"
 #include "ui/SceneHierarchyPanel.h"
 #include "ui/ContentBrowserPanel.h"
+#include "ui/StructuralModelPanel.h"
 #include <imgui.h>
 #include <string>
 #include <vector>
@@ -58,10 +59,12 @@ public:
     // Panneaux inspirés de Hazel Engine (The Cherno)
     SceneHierarchyPanel sceneHierarchyPanel;
     ContentBrowserPanel contentBrowserPanel;
+    stabileo::ui::StructuralModelPanel structuralModelPanel;
     bool showSceneHierarchy    = true;
     bool showEntityProperties  = true;
     bool showContentBrowser    = true;
     bool showSimulationToolbar = true;
+    bool showStructuralModeler = true;
 
     // Mode Plein Écran (F11)
     bool isFullscreen             = false;

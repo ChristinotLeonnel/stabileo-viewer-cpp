@@ -8,6 +8,7 @@
 #include "solver/LinearSolver.h"
 #include "scene/ModelLoader.h"
 #include "scripting/ScriptEngine.h"
+#include "structural/BuildingGenerator.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <cmath>
@@ -41,7 +42,8 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     // Diviser dockRight en haut (Inspecteur / Coupe) et bas (Résultats EF & Plugins C#)
     ImGuiID dockRightBottom = ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Down, 0.50f, nullptr, &dockRight);
 
-    // --- Gauche Haut : Hiérarchie de Scène Hazel & Calques ---
+    // --- Gauche Haut : Hiérarchie de Scène Hazel & Calques & Modélisation ---
+    ImGui::DockBuilderDockWindow("Modélisation Structurale (Robot CAO)###StructuralModeler", dockLeft);
     ImGui::DockBuilderDockWindow("Hiérarchie de Scène###SceneHierarchy", dockLeft);
     ImGui::DockBuilderDockWindow("Explorateur de Modèle###StructureExplorer", dockLeft);
     ImGui::DockBuilderDockWindow("Affichage & Calques###DisplayLayers", dockLeft);
@@ -142,6 +144,11 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
         if (!cbDxf.empty()) pendingDxfLoad = cbDxf;
         std::string cbScript = contentBrowserPanel.getPendingScriptFile();
         if (!cbScript.empty()) showCSharpScripting = true;
+    }
+
+    // --- Panneau de Modélisation Structurale CAO (Workflow style Robot) ---
+    if (showStructuralModeler) {
+        structuralModelPanel.draw(structure, &showStructuralModeler);
     }
 
     // --- 2. Fenêtres dockables : Explorateur & Calques ---
@@ -251,6 +258,8 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
         // ---- 3. AFFICHAGE (Visual Studio 2026 Standard) ----
         if (ImGui::BeginMenu("Affichage")) {
             if (ImGui::BeginMenu("Fenêtres d'Outils")) {
+                ImGui::MenuItem("Modélisation Structurale (Robot CAO)", "Ctrl+M", &showStructuralModeler);
+                ImGui::Separator();
                 ImGui::MenuItem("Hiérarchie de Scène (Hazel)", nullptr, &showSceneHierarchy);
                 ImGui::MenuItem("Propriétés & Composants (Hazel)", nullptr, &showEntityProperties);
                 ImGui::MenuItem("Explorateur de Contenu (Hazel)", nullptr, &showContentBrowser);
@@ -325,6 +334,13 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                         static_cast<int>(structure.nodalLoads.size()),
                         static_cast<int>(structure.distributedLoads.size()));
             ImGui::Separator();
+            if (ImGui::MenuItem("Atelier de Modélisation (Robot CAO)", "Ctrl+M", &showStructuralModeler)) {}
+            if (ImGui::MenuItem("Générer Bâtiment R+2 (15m x 10m - C25/30)")) {
+                stabileo::structural::BuildingGenerator::generateBuildingRPlus2(structuralModelPanel.getDatabase());
+                structuralModelPanel.syncStructure(structure);
+                needsRebuild = true;
+            }
+            ImGui::Separator();
             if (ImGui::MenuItem("Afficher l'Explorateur de Structure")) {
                 showStructureExplorer = true;
             }
@@ -380,6 +396,7 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Afficher tous les panneaux")) {
+                showStructuralModeler = true;
                 showSceneHierarchy = true;
                 showEntityProperties = true;
                 showContentBrowser = true;
@@ -396,6 +413,7 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
                 showCSharpScripting = true;
             }
             if (ImGui::MenuItem("Fermer tous les panneaux")) {
+                showStructuralModeler = false;
                 showSceneHierarchy = false;
                 showEntityProperties = false;
                 showContentBrowser = false;
