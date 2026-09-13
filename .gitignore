@@ -1,0 +1,30 @@
+# Build artifacts
+build/
+out/
+.vs/
+x64/
+Debug/
+Release/
+*.vcxproj.user
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# IDE
+*.suo
+*.user
+*.sln.docstates
+.idea/
+.vscode/
+
+# OS & ImGui
+Thumbs.db
+desktop.ini
+.DS_Store
+imgui.ini
+*.log
+*.rar
+*.zip
+*.7z
