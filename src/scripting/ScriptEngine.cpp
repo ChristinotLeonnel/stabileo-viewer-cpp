@@ -121,6 +121,8 @@ static std::unordered_map<std::string, bool>& getPluginWindowMap() {
     return s_pluginMap;
 }
 
+static thread_local int s_activeScriptWindows = 0;
+
 static bool ImGui_Begin(const char* name, void*, int flags) {
     std::string title = name ? name : "Fenêtre C#";
     auto& map = getPluginWindowMap();
@@ -128,12 +130,18 @@ static bool ImGui_Begin(const char* name, void*, int flags) {
         map[title] = true;
     }
     bool& open = map[title];
-    if (!open) return false;
+    if (!open) {
+        return false;
+    }
+    s_activeScriptWindows++;
     return ImGui::Begin(title.c_str(), &open, flags);
 }
 
 static void ImGui_End() {
-    ImGui::End();
+    if (s_activeScriptWindows > 0) {
+        s_activeScriptWindows--;
+        ImGui::End();
+    }
 }
 
 static void ImGui_Text(const char* text) {
@@ -717,6 +725,11 @@ void ScriptEngine::onUIRender() {
         } catch (...) {
             s_lastLog = "[ScriptEngine] Exception non gérée lors du rendu UI C#.";
             s_logHistory.push_back(s_lastLog);
+        }
+        // Sécurité anti-désynchronisation de la pile de fenêtres Dear ImGui
+        while (s_activeScriptWindows > 0) {
+            s_activeScriptWindows--;
+            ImGui::End();
         }
     }
 }
