@@ -53,7 +53,7 @@ public:
     bool needsHeatmapRebuild  = false;
 
     // Visibilité individuelle de chaque onglet / fenêtre dockable (style Visual Studio 2026)
-    bool showViewport3D       = true;
+    bool showViewport3D       = false; // Désactivé : la scène 3D s'affiche directement plein écran sans superposition
     bool showStructureExplorer = true;
     bool showDisplayLayers    = true;
     bool showSectionPlanes    = true;

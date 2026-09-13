@@ -99,12 +99,24 @@ static float raySegmentDistance(const glm::vec3& rayOrigin, const glm::vec3& ray
 }
 
 /// Sélectionne le nœud ou la barre le plus proche du rayon souris (picking 3D).
-static void performPicking(AppContext& ctx, GLFWwindow* /*window*/,
+static void performPicking(AppContext& ctx, GLFWwindow* window,
                             const model::Structure& structure, RenderState& renderState) {
-    float vpW = ctx.uiManager ? ctx.uiManager->viewportSize.x : 1600.0f;
-    float vpH = ctx.uiManager ? ctx.uiManager->viewportSize.y : 900.0f;
-    float relX = static_cast<float>(ctx.mouseDownX - (ctx.uiManager ? ctx.uiManager->viewportPos.x : 0.0f));
-    float relY = static_cast<float>(ctx.mouseDownY - (ctx.uiManager ? ctx.uiManager->viewportPos.y : 0.0f));
+    float vpW = 1600.0f;
+    float vpH = 900.0f;
+    float relX = static_cast<float>(ctx.mouseDownX);
+    float relY = static_cast<float>(ctx.mouseDownY);
+
+    if (ctx.uiManager && ctx.uiManager->showViewport3D) {
+        vpW  = ctx.uiManager->viewportSize.x;
+        vpH  = ctx.uiManager->viewportSize.y;
+        relX = static_cast<float>(ctx.mouseDownX - ctx.uiManager->viewportPos.x);
+        relY = static_cast<float>(ctx.mouseDownY - ctx.uiManager->viewportPos.y);
+    } else {
+        int w = 1600, h = 900;
+        if (window) glfwGetFramebufferSize(window, &w, &h);
+        vpW  = static_cast<float>(w);
+        vpH  = static_cast<float>(h);
+    }
 
     if (relX < 0.0f || relX > vpW || relY < 0.0f || relY > vpH) return;
 
@@ -158,7 +170,9 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
 
-    bool overViewport = ctx->uiManager ? ctx->uiManager->viewportHovered : !ImGui::GetIO().WantCaptureMouse;
+    bool overViewport = (ctx->uiManager && ctx->uiManager->showViewport3D)
+                        ? ctx->uiManager->viewportHovered
+                        : !ImGui::GetIO().WantCaptureMouse;
 
     if (action == GLFW_RELEASE) {
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -210,13 +224,27 @@ static void scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffse
     auto* ctx = static_cast<AppContext*>(glfwGetWindowUserPointer(window));
     if (!ctx) return;
 
-    bool overViewport = ctx->uiManager ? ctx->uiManager->viewportHovered : !ImGui::GetIO().WantCaptureMouse;
+    bool overViewport = (ctx->uiManager && ctx->uiManager->showViewport3D)
+                        ? ctx->uiManager->viewportHovered
+                        : !ImGui::GetIO().WantCaptureMouse;
     if (!overViewport) return;
 
-    float vpW = ctx->uiManager ? ctx->uiManager->viewportSize.x : 1600.0f;
-    float vpH = ctx->uiManager ? ctx->uiManager->viewportSize.y : 900.0f;
-    float relX = static_cast<float>(ctx->lastMouseX - (ctx->uiManager ? ctx->uiManager->viewportPos.x : 0.0f));
-    float relY = static_cast<float>(ctx->lastMouseY - (ctx->uiManager ? ctx->uiManager->viewportPos.y : 0.0f));
+    float vpW = 1600.0f;
+    float vpH = 900.0f;
+    float relX = static_cast<float>(ctx->lastMouseX);
+    float relY = static_cast<float>(ctx->lastMouseY);
+
+    if (ctx->uiManager && ctx->uiManager->showViewport3D) {
+        vpW  = ctx->uiManager->viewportSize.x;
+        vpH  = ctx->uiManager->viewportSize.y;
+        relX = static_cast<float>(ctx->lastMouseX - ctx->uiManager->viewportPos.x);
+        relY = static_cast<float>(ctx->lastMouseY - ctx->uiManager->viewportPos.y);
+    } else {
+        int w = 1600, h = 900;
+        glfwGetFramebufferSize(window, &w, &h);
+        vpW  = static_cast<float>(w);
+        vpH  = static_cast<float>(h);
+    }
 
     glm::vec3 rayOrigin, rayDir;
     if (screenPointToRay(relX, relY, vpW, vpH, ctx->camera, rayOrigin, rayDir)) {
@@ -548,30 +576,47 @@ int main(int argc, char* argv[]) {
         // Rendu ImGui pour construire les commandes graphiques
         ImGui::Render();
 
-        // 1. Rendu hors-écran de la scène 3D dans le Framebuffer OpenGL (FBO)
-        int fboW = static_cast<int>(uiManager.viewportSize.x);
-        int fboH = static_cast<int>(uiManager.viewportSize.y);
-        if (fboW > 0 && fboH > 0) {
-            fbo.resize(fboW, fboH);
-            fbo.bind();
-            glViewport(0, 0, fboW, fboH);
-            appCtx.camera.aspectRatio = static_cast<float>(fboW) / static_cast<float>(fboH);
+        // Rendu de la scène 3D
+        int displayW, displayH;
+        glfwGetFramebufferSize(window, &displayW, &displayH);
+
+        if (uiManager.showViewport3D) {
+            // Rendu FBO si la fenêtre dockable "Vue 3D" est activée
+            int fboW = static_cast<int>(uiManager.viewportSize.x);
+            int fboH = static_cast<int>(uiManager.viewportSize.y);
+            if (fboW > 0 && fboH > 0) {
+                fbo.resize(fboW, fboH);
+                fbo.bind();
+                glViewport(0, 0, fboW, fboH);
+                appCtx.camera.aspectRatio = static_cast<float>(fboW) / static_cast<float>(fboH);
+
+                glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                renderer.draw(appCtx.camera, renderState, currentTime);
+                fbo.unbind();
+            }
+
+            glViewport(0, 0, displayW, displayH);
+            glClearColor(0.06f, 0.07f, 0.09f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT);
+        } else {
+            // Mode plein écran direct par défaut : la scène 3D est affichée directement
+            // en arrière-plan et visible à travers le DockSpace transparent (zéro superposition)
+            glViewport(0, 0, displayW, displayH);
+            appCtx.camera.aspectRatio = static_cast<float>(displayW) / static_cast<float>(displayH);
 
             glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             renderer.draw(appCtx.camera, renderState, currentTime);
-            fbo.unbind();
+
+            uiManager.viewportPos = ImVec2(0.0f, 0.0f);
+            uiManager.viewportSize = ImVec2(static_cast<float>(displayW), static_cast<float>(displayH));
+            uiManager.viewportHovered = !io.WantCaptureMouse;
         }
 
-        // 2. Rendu de la fenêtre principale GLFW (contenant le DockSpace et toutes les fenêtres ImGui)
-        int displayW, displayH;
-        glfwGetFramebufferSize(window, &displayW, &displayH);
-        glViewport(0, 0, displayW, displayH);
-
-        glClearColor(0.06f, 0.07f, 0.09f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
+        // Rendu des panneaux ImGui par-dessus le fond 3D
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);

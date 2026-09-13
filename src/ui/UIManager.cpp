@@ -89,29 +89,26 @@ void UIManager::setupStyle() {
 
 void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderRemoveNode(dockspaceId);
-    ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
     ImGui::DockBuilderSetNodeSize(dockspaceId, ImGui::GetMainViewport()->Size);
 
     ImGuiID dockMain = dockspaceId;
 
-    // Division ergonomique Visual Studio 2026 :
-    // 1. Panneau Bas (Sortie / Tables de données) : 28% hauteur
-    ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.28f, nullptr, &dockMain);
-    // 2. Panneau Gauche (Explorateur de Structure & Calques) : 22% largeur
+    // Division ergonomique sans superposition :
+    // 1. Panneau Bas (Sortie / Tables de données / C#) : 24% hauteur
+    ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.24f, nullptr, &dockMain);
+    // 2. Panneau Gauche (Explorateur de Structure & Calques & Catalogues) : 22% largeur
     ImGuiID dockLeft   = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Left, 0.22f, nullptr, &dockMain);
-    // 3. Panneau Droit (Inspecteur de Propriétés & Plans de Coupe) : 25% largeur
-    ImGuiID dockRight  = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.25f, nullptr, &dockMain);
+    // 3. Panneau Droit (Inspecteur, Coupe, Résultats EF & Plugins C#) : 26% largeur
+    ImGuiID dockRight  = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.26f, nullptr, &dockMain);
 
-    // Diviser dockLeft en haut (Explorateur) et bas (Catalogues & DXF)
-    ImGuiID dockLeftBottom = ImGui::DockBuilderSplitNode(dockLeft, ImGuiDir_Down, 0.40f, nullptr, &dockLeft);
+    // Diviser dockLeft en haut (Explorateur & Calques) et bas (Catalogues & DXF)
+    ImGuiID dockLeftBottom = ImGui::DockBuilderSplitNode(dockLeft, ImGuiDir_Down, 0.45f, nullptr, &dockLeft);
 
-    // Diviser dockRight en haut (Inspecteur / Coupe) et bas (Résultats EF & Diagrammes)
-    ImGuiID dockRightBottom = ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Down, 0.45f, nullptr, &dockRight);
+    // Diviser dockRight en haut (Inspecteur / Coupe) et bas (Résultats EF & Plugins C#)
+    ImGuiID dockRightBottom = ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Down, 0.50f, nullptr, &dockRight);
 
-    // --- Centre : Zone de Documents / Édition ---
-    ImGui::DockBuilderDockWindow("Vue 3D Principale###Viewport3D", dockMain);
-
-    // --- Gauche Haut : Explorateur de Solution / Structure & Calques ---
+    // --- Gauche Haut : Explorateur de Modèle & Calques ---
     ImGui::DockBuilderDockWindow("Explorateur de Modèle###StructureExplorer", dockLeft);
     ImGui::DockBuilderDockWindow("Affichage & Calques###DisplayLayers", dockLeft);
 
@@ -124,19 +121,24 @@ void UIManager::buildDefaultDockLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Inspecteur & Propriétés###Inspector", dockRight);
     ImGui::DockBuilderDockWindow("Plans de Coupe & Vues 2D###SectionPlanes", dockRight);
 
-    // --- Droite Bas : Résultats d'Analyse EF ---
+    // --- Droite Bas : Résultats d'Analyse EF & Plugins C# ---
     ImGui::DockBuilderDockWindow("Déformée 3D###DeformedResults", dockRightBottom);
     ImGui::DockBuilderDockWindow("Diagrammes d'Efforts###DiagramsResults", dockRightBottom);
     ImGui::DockBuilderDockWindow("Carte des Contraintes###HeatmapResults", dockRightBottom);
+    ImGui::DockBuilderDockWindow("Eurocode 3 — Vérification Acier (C# Plugin)", dockRightBottom);
+    ImGui::DockBuilderDockWindow("Générateur Paramétrique de Treillis (C#)", dockRightBottom);
 
     // --- Bas : Sortie & Tables de Données ---
+    ImGui::DockBuilderDockWindow("Journal de Calcul EF###SolverLog", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Nœuds###TableNodes", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Éléments###TableElements", dockBottom);
     ImGui::DockBuilderDockWindow("Table : Réactions###TableReactions", dockBottom);
-    ImGui::DockBuilderDockWindow("Journal de Calcul EF###SolverLog", dockBottom);
     ImGui::DockBuilderDockWindow("Scripts & Plugins C# (Hazel)###CSharpScripting", dockBottom);
-    ImGui::DockBuilderDockWindow("Eurocode 3 — Vérification Acier (C# Plugin)", dockRightBottom);
-    ImGui::DockBuilderDockWindow("Générateur Paramétrique de Treillis (C#)", dockRightBottom);
+
+    // Si la fenêtre Vue 3D est explicitement demandée par l'utilisateur, on la docke au centre
+    if (showViewport3D) {
+        ImGui::DockBuilderDockWindow("Vue 3D Principale###Viewport3D", dockMain);
+    }
 
     ImGui::DockBuilderFinish(dockspaceId);
 }
@@ -149,11 +151,11 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
     needsDiagramRebuild  = false;
     needsHeatmapRebuild  = false;
 
-    // Barre de menus principale Visual Studio 2026
+    // Barre de menus principale Visual Studio 2026 avec boutons de vue rapides intégrés
     drawMainMenuBar(structure, camera, boundsMin, boundsMax, state, fps);
 
-    // Création du DockSpace principal (fond opaque sombre)
-    ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_None;
+    // Création du DockSpace principal (avec Passthru pour laisser passer la 3D centrale plein écran)
+    ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
     ImGuiID dockspaceId = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockFlags);
 
     // Initialisation au premier lancement si aucun nœud n'existe ou si réinitialisation demandée
@@ -163,15 +165,20 @@ bool UIManager::drawUI(RenderState& state, model::Structure& structure, Camera& 
         buildDefaultDockLayout(dockspaceId);
     }
 
-    // Barre d'outils d'accès rapide (Ribbon Strip sous le menu)
-    drawQuickToolbar(camera, boundsMin, boundsMax, state);
-
-    // --- 1. Fenêtre centrale : Vue 3D Dockable (FBO) ---
+    // --- 1. Fenêtre centrale : Vue 3D Dockable (Désactivée par défaut) ---
     if (showViewport3D) {
         drawViewportWindow(camera, viewportTexture, boundsMin, boundsMax, state);
     } else {
-        viewportHovered = false;
+        viewportHovered = !ImGui::GetIO().WantCaptureMouse;
         viewportFocused = false;
+    }
+
+    // Affichage du Cube de Navigation 3D directement dans le quadrant droit de la vue 3D centrale
+    if (showViewCube && !showViewport3D) {
+        ImGuiViewport* mainVp = ImGui::GetMainViewport();
+        float cubeCenterX = mainVp->WorkPos.x + mainVp->WorkSize.x - 390.0f;
+        float cubeCenterY = mainVp->WorkPos.y + 65.0f;
+        viewCube.draw(camera, boundsMin, boundsMax, cubeCenterX, cubeCenterY);
     }
 
     // --- 2. Fenêtres dockables : Explorateur & Calques ---
@@ -434,8 +441,26 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
             ImGui::EndMenu();
         }
 
+        // Boutons d'accès rapide caméra intégrés directement dans le Menu Principal (zéro superposition)
+        ImGui::SameLine(0.0f, 25.0f);
+        ImGui::TextDisabled("| Vues :");
+        ImGui::SameLine(0.0f, 6.0f);
+        if (ImGui::Button("Face (1)"))   camera.setFrontView();
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button("Plan (2)"))   camera.setTopView();
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button("Côté (3)"))   camera.setSideView();
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button("Iso (4)"))    camera.setIsometricView();
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button("Cadrer (F)")) camera.fitToScene(boundsMin, boundsMax);
+        ImGui::SameLine(0.0f, 4.0f);
+        if (ImGui::Button(camera.orthographic ? "Persp" : "Ortho")) {
+            camera.orthographic = !camera.orthographic;
+        }
+
         // Zone d'information et badges d'état à droite (style Visual Studio status indicators)
-        float rightInfoWidth = 430.0f;
+        float rightInfoWidth = 380.0f;
         ImGui::SetCursorPosX(ImGui::GetWindowWidth() - rightInfoWidth);
 
         ImGui::TextColored(ImVec4(0.2f, 0.8f, 1.0f, 1.0f), "STABILEO 2026");
@@ -455,60 +480,8 @@ void UIManager::drawMainMenuBar(model::Structure& structure, Camera& camera,
     }
 }
 
-void UIManager::drawQuickToolbar(Camera& camera, const glm::vec3& boundsMin, const glm::vec3& boundsMax, RenderState& state) {
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(vp->Pos.x + 12.0f, vp->Pos.y + 35.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.82f);
-
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration |
-                             ImGuiWindowFlags_AlwaysAutoResize |
-                             ImGuiWindowFlags_NoSavedSettings |
-                             ImGuiWindowFlags_NoFocusOnAppearing |
-                             ImGuiWindowFlags_NoNav |
-                             ImGuiWindowFlags_NoMove;
-
-    if (ImGui::Begin("##QuickToolbar", nullptr, flags)) {
-        ImGui::TextDisabled("Vues :");
-        ImGui::SameLine();
-        if (ImGui::Button("Face (1)")) camera.setFrontView();
-        ImGui::SameLine();
-        if (ImGui::Button("Dessus (2)")) camera.setTopView();
-        ImGui::SameLine();
-        if (ImGui::Button("Côté (3)")) camera.setSideView();
-        ImGui::SameLine();
-        if (ImGui::Button("Iso (4)")) camera.setIsometricView();
-        ImGui::SameLine();
-        if (ImGui::Button("Cadrer (F)")) camera.fitToScene(boundsMin, boundsMax);
-        ImGui::SameLine();
-        if (ImGui::Button(camera.orthographic ? "Persp" : "Ortho")) {
-            camera.orthographic = !camera.orthographic;
-        }
-
-        ImGui::SameLine();
-        ImGui::TextDisabled("|");
-        ImGui::SameLine();
-
-        if (ImGui::Button(state.sectionPlanes.active() ? "Coupe (Active)##tb" : "Coupe##tb")) {
-            showSectionPlanes = !showSectionPlanes;
-        }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Profilés 3D", &state.showProfiles3D)) {
-            needsRebuild = true;
-        }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Déformée", &state.showDeformed)) {
-            if (state.showDeformed) needsDeformedRebuild = true;
-        }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Diagrammes", &state.showDiagram)) {
-            if (state.showDiagram) needsDiagramRebuild = true;
-        }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Heatmap", &state.showHeatmap)) {
-            if (state.showHeatmap) needsHeatmapRebuild = true;
-        }
-    }
-    ImGui::End();
+void UIManager::drawQuickToolbar(Camera& /*camera*/, const glm::vec3& /*boundsMin*/, const glm::vec3& /*boundsMax*/, RenderState& /*state*/) {
+    // Désactivé pour supprimer toute fenêtre flottante superposée
 }
 
 void UIManager::drawSectionPlanesWindow(RenderState& state, const glm::vec3& boundsMin, const glm::vec3& boundsMax, Camera& camera) {

@@ -30,104 +30,48 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/Debug")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release")
 
-include(FetchContent)
-set(FETCHCONTENT_QUIET OFF)
+# ===========================================================================
+#  Bibliothèques Locales (dossier libs/ au même niveau que src/)
+#  Avantages : 100% hors-ligne, zéro clone git, configuration CMake instantanée.
+# ===========================================================================
 
-# ===========================================================================
-#  GLFW — Fenêtrage, contexte OpenGL, entrées souris/clavier
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching GLFW 3.4 ...")
-FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
-    GIT_SHALLOW    TRUE
-)
+# 1. GLFW 3.4
 set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(glfw)
+add_subdirectory(libs/glfw)
 
-# ===========================================================================
-#  GLM — Mathématiques 3D (vecteurs, matrices, quaternions)
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching GLM 1.0.1 ...")
-FetchContent_Declare(
-    glm
-    GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(glm)
+# 2. GLM 1.0.1
+add_subdirectory(libs/glm)
 
-# ===========================================================================
-#  GLEW — Chargement des fonctions OpenGL (via glew-cmake wrapper)
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching GLEW 2.2.0 ...")
-FetchContent_Declare(
-    glew
-    GIT_REPOSITORY https://github.com/Perlmint/glew-cmake.git
-    GIT_TAG        glew-cmake-2.2.0
-    GIT_SHALLOW    TRUE
-)
+# 3. GLEW 2.2.0
 set(glew-cmake_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(glew)
+add_subdirectory(libs/glew)
 
-# ===========================================================================
-#  Dear ImGui — Interface utilisateur immédiate
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching Dear ImGui ...")
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        docking
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(imgui)
-
-# Build ImGui as a static library with GLFW + OpenGL3 backends
+# 4. Dear ImGui (Docking)
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/imgui")
 add_library(imgui_lib STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_demo.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
 )
 target_include_directories(imgui_lib PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
 )
-# Link GLEW (PUBLIC) so that __has_include(<GL/glew.h>) succeeds in the
-# ImGui OpenGL3 backend, triggering GLEW auto-detection.
 target_link_libraries(imgui_lib PUBLIC glfw libglew_static)
 
-# ===========================================================================
-#  nlohmann/json — Sérialisation JSON header-only
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching nlohmann/json 3.11.3 ...")
-FetchContent_Declare(
-    json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG        v3.11.3
-    GIT_SHALLOW    TRUE
-)
+# 5. nlohmann/json 3.11.3
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(json)
+add_subdirectory(libs/json)
 
-# ===========================================================================
-#  Eigen 3.4.0 — Algèbre linéaire pour le solveur d'analyse par éléments finis
-# ===========================================================================
-message(STATUS "[StabileoViewer] Fetching Eigen 3.4.0 ...")
-FetchContent_Declare(
-    eigen
-    URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
-)
-set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
-set(BUILD_TESTING   OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(eigen)
+# 6. Eigen 3.4.0 (Header-only)
+set(EIGEN_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/eigen")
 
 # ===========================================================================
 #  StabileoViewer — Exécutable principal
@@ -141,7 +85,7 @@ add_executable(StabileoViewer ${APP_SOURCES})
 
 target_include_directories(StabileoViewer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${eigen_SOURCE_DIR}
+    ${EIGEN_INCLUDE_DIR}
 )
 
 target_link_libraries(StabileoViewer PRIVATE

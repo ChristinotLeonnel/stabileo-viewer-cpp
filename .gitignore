@@ -31,3 +31,6 @@ imgui.ini
 
 # C# build artifacts
 assets/scripts/bin/
+
+# Local third-party libraries (kept on local disk for instant offline builds)
+libs/
